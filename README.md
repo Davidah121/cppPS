@@ -14,7 +14,7 @@
 <h1>Instructions</h1>
 <ol>
  <li>Set an environment variable to the .exe file (or just type the full path to the tool)</li>
- <li>Use the tool on a directory</li>
+ <li>Use the tool on and set the directory.</li>
  <li>Adjust the varsx64.ninja and varsx86.ninja files for your includes, libraries, and flags if needed.</li>
  <li>Add your files to the src folder and include folder and call the update function for this tool.</li>
  <li>Use the buildx64.bat or buildx86.bat (dependending on what you want to build for) to build your project.</li>
@@ -27,9 +27,9 @@
  <br>
  <li>-help<br>This list the commands, what they do, and what the tool does.</li>
  <br>
- <li>-f<br>This selects a directory for the tool that is not the current directory.</li>
+ <li>-f<br>This selects a directory for the tool.</li>
  <br>
- <li>-n<br>This set the project name which will determine the output files name.</li>
+ <li>-n<br>This set the project name which will determine the output files name (Not Required).</li>
  <br>
  <li>-u<br>This update a project setup by this tool at the current directory. Should be called when you change anything in the src folder.</li>
 </ul>
