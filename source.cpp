@@ -2,6 +2,7 @@
 #include <fstream>
 #include <filesystem>
 
+//note that startDir is appended with ./ later on.
 std::string startDir = "";
 std::string projectName = "";
 
@@ -189,7 +190,7 @@ void createBatchFile()
     
     if(file.is_open())
     {
-        file << "echo off\n";
+        file << "@echo OFF\n";
         file << "ninja -f ./build/buildx64.ninja -v\n";
         file << "clang ./bin/x64/obj/*.o -o ./bin/x64/";
         file << projectName;
@@ -203,9 +204,9 @@ void createBatchFile()
     
     if(file.is_open())
     {
-        file << "echo off\n";
+        file << "@echo OFF\n";
         file << "ninja -f ./build/buildx86.ninja -v\n";
-        file << "clang ./bin/x86/obj/*.o -o ./bin/x86/";
+        file << "\"C:\\Program Files (x86)\\LLVM\\bin\\clang\" ./bin/x86/obj/*.o -o ./bin/x86/";
         file << projectName;
         file << ".exe";
     }
@@ -262,8 +263,7 @@ int main(int argc, const char* argv[])
     }
     else
     {
-        std::cout << "Not enough arguments." << std::endl;
-        std::cout << "Type -help with the command for instructions." << std::endl;
+        std::cout << "Version 0.1" << std::endl;
         return 0;
     }
     
@@ -274,16 +274,15 @@ int main(int argc, const char* argv[])
     else
     {
         //update or create new project
-
+        
         if(update == false)
         {
             if(projectName=="")
             {
                 std::cout << "Setting project name to default" << std::endl;
-                std::experimental::filesystem::path fil = std::experimental::filesystem::absolute(startDir);
-                
-                projectName = fil.stem().string();
+                projectName = "output";
             }
+            startDir += "./";
             std::cout << "Creating directories" << std::endl;
             createDirectories();
 
@@ -300,7 +299,7 @@ int main(int argc, const char* argv[])
         {
             //only have to recreate these. These files contain
             //the files that need to be built.
-
+            startDir += "./";
             std::cout << "Updating .ninja files" << std::endl;
             createNinjaFilex64();
             createNinjaFilex86();
