@@ -42,27 +42,15 @@ bool createDirectories()
     if(fs::is_directory(startDir))
     {
         createDir("bin");
-        createDir("bin/Debug");
-        createDir("bin/Release");
+        createDir("bin/x64");
+        createDir("bin/x86");
 
-        createDir("bin/Debug/x64");
-        createDir("bin/Debug/x86");
-
-        createDir("bin/Release/x64");
-        createDir("bin/Release/x86");
-
-        createDir("bin/Debug/x64/obj");
-        createDir("bin/Debug/x86/obj");
-
-        createDir("bin/Release/x64/obj");
-        createDir("bin/Release/x86/obj");
+        createDir("bin/x64/obj");
+        createDir("bin/x86/obj");
 
         createDir("src");
         createDir("include");
         createDir("build");
-
-        createDir("build/Debug");
-        createDir("build/Release");
     }
     else
     {
@@ -74,27 +62,15 @@ bool createDirectories()
 
 void createNinjaVarFilex64()
 {
-    std::fstream file(startDir + "/build/Debug/varsx64.ninja", std::fstream::out | std::fstream::binary);
+    std::fstream file(startDir + "/build/varsx64.ninja", std::fstream::out | std::fstream::binary);
     
     if(file.is_open())
     {
         file << "inc = -I ./include\n";
-        file << "objDir = ./bin/Debug/x64/obj\n";
-        file << "compiler = cmd /c clang\n";
-        file << "compilerFlags = -c -g\n";
-    }
-
-    file.close();
-
-
-    file = std::fstream(startDir + "/build/Release/varsx64.ninja", std::fstream::out | std::fstream::binary);
-    
-    if(file.is_open())
-    {
-        file << "inc = -I ./include\n";
-        file << "objDir = ./bin/Release/x64/obj\n";
-        file << "compiler = cmd /c clang\n";
-        file << "compilerFlags = -c -O3\n";
+        file << "objDir = ./bin/x64/obj\n";
+        file << "exeDir = ./bin/x64\n";
+        file << "compiler = clang\n";
+        file << "compilerFlags = -c\n";
     }
 
     file.close();
@@ -102,26 +78,15 @@ void createNinjaVarFilex64()
 
 void createNinjaVarFilex86()
 {
-    std::fstream file(startDir + "/build/Debug/varsx86.ninja", std::fstream::out | std::fstream::binary);
+    std::fstream file(startDir + "/build/varsx86.ninja", std::fstream::out | std::fstream::binary);
     
     if(file.is_open())
     {
         file << "inc = -I ./include\n";
-        file << "objDir = ./bin/Debug/x86/obj\n";
+        file << "objDir = ./bin/x86/obj\n";
+        file << "exeDir = ./bin/x86\n";
         file << "compiler = \"C:\\Program Files (x86)\\LLVM\\bin\\clang\"\n";
-        file << "compilerFlags = -c -g\n";
-    }
-
-    file.close();
-
-    file = std::fstream(startDir + "/build/Release/varsx86.ninja", std::fstream::out | std::fstream::binary);
-    
-    if(file.is_open())
-    {
-        file << "inc = -I ./include\n";
-        file << "objDir = ./bin/Release/x86/obj\n";
-        file << "compiler = \"C:\\Program Files (x86)\\LLVM\\bin\\clang\"\n";
-        file << "compilerFlags = -c -O3\n";
+        file << "compilerFlags = -c\n";
     }
 
     file.close();
@@ -130,53 +95,12 @@ void createNinjaVarFilex86()
 void createNinjaFilex64()
 {
     //x64 version
-    std::fstream file(startDir + "/build/Debug/buildx64.ninja", std::fstream::out | std::fstream::binary);
+    std::fstream file(startDir + "/build/buildx64.ninja", std::fstream::out | std::fstream::binary);
     
     if(file.is_open())
     {
         file << "# Include variables for this build\n";
-        file << "include ./build/Debug/varsx64.ninja\n\n";
-
-        file << "## for getting object files\n";
-        file << "## This also gets dependencies\n";
-
-        file << "rule buildToObject\n";
-        file << "   command = $compiler $compilerFlags $inc $in -o $out -MMD -MF $out.d\n";
-        file << "   depfile = $out.d\n";
-        file << "   deps = gcc\n\n";
-
-        //proceed to build all objects using the same syntax as this
-        //build $objDir/Person.o: buildToObject src/Person.cpp
-
-        file << "## build all of the objects and the executable\n";
-        namespace fs = std::experimental::filesystem;
-        std::string srcDir = startDir+"/src";
-
-        for(fs::directory_entry f : fs::directory_iterator(srcDir))
-        {
-            if(fs::is_regular_file(f.path()))
-            {
-                std::string nameString = f.path().stem().string();
-                std::string extension = f.path().extension().string();
-                file << "build $objDir/";
-                file << nameString;
-                file << ".o: buildToObject src/";
-                file << nameString;
-                file << extension;
-                file << "\n";
-            }
-        }
-        
-    }
-
-    file.close();
-
-    file = std::fstream(startDir + "/build/Release/buildx64.ninja", std::fstream::out | std::fstream::binary);
-    
-    if(file.is_open())
-    {
-        file << "# Include variables for this build\n";
-        file << "include ./build/Release/varsx64.ninja\n\n";
+        file << "include ./build/varsx64.ninja\n\n";
 
         file << "## for getting object files\n";
         file << "## This also gets dependencies\n";
@@ -216,53 +140,12 @@ void createNinjaFilex64()
 void createNinjaFilex86()
 {
     //x86 version
-    std::fstream file(startDir + "/build/Debug/buildx86.ninja", std::fstream::out | std::fstream::binary);
+    std::fstream file(startDir + "/build/buildx86.ninja", std::fstream::out | std::fstream::binary);
     
     if(file.is_open())
     {
         file << "# Include variables for this build\n";
-        file << "include ./build/Debug/varsx86.ninja\n\n";
-
-        file << "## for getting object files\n";
-        file << "## This also gets dependencies\n";
-
-        file << "rule buildToObject\n";
-        file << "   command = $compiler $compilerFlags $inc $in -o $out -MMD -MF $out.d\n";
-        file << "   depfile = $out.d\n";
-        file << "   deps = gcc\n\n";
-
-        //proceed to build all objects using the same syntax as this
-        //build $objDir/Person.o: buildToObject src/Person.cpp
-
-        file << "## build all of the objects and the executable\n";
-        namespace fs = std::experimental::filesystem;
-        std::string srcDir = startDir+"/src";
-
-        for(fs::directory_entry f : fs::directory_iterator(srcDir))
-        {
-            if(fs::is_regular_file(f.path()))
-            {
-                std::string nameString = f.path().stem().string();
-                std::string extension = f.path().extension().string();
-                file << "build $objDir/";
-                file << nameString;
-                file << ".o: buildToObject src/";
-                file << nameString;
-                file << extension;
-                file << "\n";
-            }
-        }
-        
-    }
-
-    file.close();
-
-    file = std::fstream(startDir + "/build/Release/buildx86.ninja", std::fstream::out | std::fstream::binary);
-    
-    if(file.is_open())
-    {
-        file << "# Include variables for this build\n";
-        file << "include ./build/Release/varsx86.ninja\n\n";
+        file << "include ./build/varsx86.ninja\n\n";
 
         file << "## for getting object files\n";
         file << "## This also gets dependencies\n";
@@ -303,13 +186,13 @@ void createBatchFile()
 {
     //x64 version
 
-    std::fstream file(startDir + "build/Debug/buildx64.bat", std::fstream::out | std::fstream::binary);
+    std::fstream file(startDir + "/buildx64.bat", std::fstream::out | std::fstream::binary);
     
     if(file.is_open())
     {
         file << "@echo OFF\n";
-        file << "ninja -f ./build/Debug/buildx64.ninja -v\n";
-        file << "clang -g ./bin/Debug/x64/obj/*.o -o ./bin/Debug/x64/";
+        file << "ninja -f ./build/buildx64.ninja -v\n";
+        file << "clang ./bin/x64/obj/*.o -o ./bin/x64/";
         file << projectName;
         file << ".exe";
     }
@@ -317,40 +200,13 @@ void createBatchFile()
     file.close();
 
     //x86 version
-    file = std::fstream(startDir + "build/Debug/buildx86.bat", std::fstream::out | std::fstream::binary);
+    file = std::fstream(startDir + "/buildx86.bat", std::fstream::out | std::fstream::binary);
     
     if(file.is_open())
     {
         file << "@echo OFF\n";
-        file << "ninja -f ./build/Debug/buildx86.ninja -v\n";
-        file << "\"C:\\Program Files (x86)\\LLVM\\bin\\clang\" -g ./bin/Debug/x86/obj/*.o -o ./bin/Debug/x86/";
-        file << projectName;
-        file << ".exe";
-    }
-
-    file.close();
-
-    file = std::fstream(startDir + "build/Release/buildx64.bat", std::fstream::out | std::fstream::binary);
-    
-    if(file.is_open())
-    {
-        file << "@echo OFF\n";
-        file << "ninja -f ./build/Release/buildx64.ninja -v\n";
-        file << "clang -O3 ./bin/Release/x64/obj/*.o -o ./bin/Release/x64/";
-        file << projectName;
-        file << ".exe";
-    }
-
-    file.close();
-
-    //x86 version
-    file = std::fstream(startDir + "build/Release/buildx86.bat", std::fstream::out | std::fstream::binary);
-    
-    if(file.is_open())
-    {
-        file << "@echo OFF\n";
-        file << "ninja -f ./build/Release/buildx86.ninja -v\n";
-        file << "\"C:\\Program Files (x86)\\LLVM\\bin\\clang\" -O3 ./bin/Release/x86/obj/*.o -o ./bin/Release/x86/";
+        file << "ninja -f ./build/buildx86.ninja -v\n";
+        file << "\"C:\\Program Files (x86)\\LLVM\\bin\\clang\" ./bin/x86/obj/*.o -o ./bin/x86/";
         file << projectName;
         file << ".exe";
     }
@@ -375,7 +231,7 @@ int main(int argc, const char* argv[])
             }
             else if(std::strcmp("-v", argv[i]) == 0)
             {
-                std::cout << "Version 0.2" << std::endl;
+                std::cout << "Version 0.1" << std::endl;
                 return 0;
                 break;
             }
@@ -407,8 +263,7 @@ int main(int argc, const char* argv[])
     }
     else
     {
-        std::cout << "Version 0.2" << std::endl;
-        std::cout << "type -h for help" << std::endl;
+        std::cout << "Version 0.1" << std::endl;
         return 0;
     }
     
