@@ -6,11 +6,6 @@
 std::string startDir = "";
 std::string projectName = "";
 
-//additional rules
-bool includeWindowsStuff = false;
-bool isStaticLibrary = false;
-bool extraDebugOptions = false;
-
 void helpFunc()
 {
 
@@ -23,15 +18,8 @@ void helpFunc()
     std::cout << "----------------------------" << std::endl;
     std::cout << "-u    Update the project at the target directory." << std::endl;
     std::cout << "-f    Change the target directory for this tool." << std::endl;
-    std::cout << "-n    Sets the project's name to something other than output." << std::endl;
-    std::cout << "-o    Set additional options." << std::endl;
+    std::cout << "-n    Sets the projects name to something other than the current directory." << std::endl;
 
-    std::cout << std::endl;
-    std::cout << "----------------------------" << std::endl;
-    std::cout << "Additional Options:" << std::endl;
-    std::cout << "Include_Windows   Includes the windows headers and libraries for both x86 and x64." << std::endl;
-    std::cout << "Static_Library    Sets the project up for building a static library. EXE build is still included." << std::endl;
-    std::cout << "Ext_Debug_Flags   Adds additional debug options to the debug build of the project." << std::endl;
 }
 
 void createDir(std::string t)
@@ -75,20 +63,6 @@ bool createDirectories()
 
         createDir("build/Debug");
         createDir("build/Release");
-
-        if(isStaticLibrary)
-        {
-            createDir("exportLib");
-
-            createDir("exportLib/Debug");
-            createDir("exportLib/Release");
-
-            createDir("exportLib/Debug/x86");
-            createDir("exportLib/Debug/x64");
-            
-            createDir("exportLib/Release/x86");
-            createDir("exportLib/Release/x64");
-        }
     }
     else
     {
@@ -104,18 +78,10 @@ void createNinjaVarFilex64()
     
     if(file.is_open())
     {
-        if(includeWindowsStuff)
-            file << "inc = -I ./include %WLIBPATH64%\n";
-        else
-            file << "inc = -I ./include\n";
-
+        file << "inc = -I ./include\n";
         file << "objDir = ./bin/Debug/x64/obj\n";
         file << "compiler = cmd /c clang\n";
-
-        if(extraDebugOptions)
-            file << "compilerFlags = -c -g -std=c++17 -Wno-unused-command-line-argument -fsanitize=address\n";
-        else
-            file << "compilerFlags = -c -g -std=c++17 -Wno-unused-command-line-argument\n";
+        file << "compilerFlags = -c -g\n";
     }
 
     file.close();
@@ -125,14 +91,10 @@ void createNinjaVarFilex64()
     
     if(file.is_open())
     {
-        if(includeWindowsStuff)
-            file << "inc = -I ./include %WLIBPATH64%\n";
-        else
-            file << "inc = -I ./include\n";
-            
+        file << "inc = -I ./include\n";
         file << "objDir = ./bin/Release/x64/obj\n";
         file << "compiler = cmd /c clang\n";
-        file << "compilerFlags = -c -O3 -std=c++17 -Wno-unused-command-line-argument\n";
+        file << "compilerFlags = -c -O3\n";
     }
 
     file.close();
@@ -144,18 +106,10 @@ void createNinjaVarFilex86()
     
     if(file.is_open())
     {
-        if(includeWindowsStuff)
-            file << "inc = -I ./include %WLIBPATH32%\n";
-        else
-            file << "inc = -I ./include\n";
-
+        file << "inc = -I ./include\n";
         file << "objDir = ./bin/Debug/x86/obj\n";
-        file << "compiler = cmd /c \"C:\\Program Files (x86)\\LLVM\\bin\\clang\"\n";
-
-        if(extraDebugOptions)
-            file << "compilerFlags = -c -g -std=c++17 -Wno-unused-command-line-argument -fsanitize=address\n";
-        else
-            file << "compilerFlags = -c -g -std=c++17 -Wno-unused-command-line-argument\n";
+        file << "compiler = \"C:\\Program Files (x86)\\LLVM\\bin\\clang\"\n";
+        file << "compilerFlags = -c -g\n";
     }
 
     file.close();
@@ -164,15 +118,10 @@ void createNinjaVarFilex86()
     
     if(file.is_open())
     {
-        if(includeWindowsStuff)
-            file << "inc = -I ./include %WLIBPATH32%\n";
-        else
-            file << "inc = -I ./include\n";
-            
+        file << "inc = -I ./include\n";
         file << "objDir = ./bin/Release/x86/obj\n";
-        file << "compiler = cmd /c \"C:\\Program Files (x86)\\LLVM\\bin\\clang\"\n";
-
-        file << "compilerFlags = -c -O3 -std=c++17 -Wno-unused-command-line-argument\n";
+        file << "compiler = \"C:\\Program Files (x86)\\LLVM\\bin\\clang\"\n";
+        file << "compilerFlags = -c -O3\n";
     }
 
     file.close();
@@ -352,160 +301,59 @@ void createNinjaFilex86()
 
 void createBatchFile()
 {
-    //x64 version DEBUG
+    //x64 version
 
     std::fstream file(startDir + "build/Debug/buildx64.bat", std::fstream::out | std::fstream::binary);
     
-    std::string k = "clang -g ";
-
     if(file.is_open())
     {
         file << "@echo OFF\n";
         file << "ninja -f ./build/Debug/buildx64.ninja -v\n";
-
-        if(extraDebugOptions)
-        {
-            k += "-fsanitize=address ";
-        }
-        if(includeWindowsStuff)
-        {
-            k += "%WLIBPATH64% %WLIBVALUES% ";
-        }
-        k+= "./bin/Debug/x64/obj/*.o -o ./bin/Debug/x64/";
-        
-        file << k;
+        file << "clang -g ./bin/Debug/x64/obj/*.o -o ./bin/Debug/x64/";
         file << projectName;
         file << ".exe";
     }
 
     file.close();
 
-    //x86 version DEBUG
+    //x86 version
     file = std::fstream(startDir + "build/Debug/buildx86.bat", std::fstream::out | std::fstream::binary);
     
-    k = "\"C:\\Program Files (x86)\\LLVM\\bin\\clang\" -g ";
     if(file.is_open())
     {
         file << "@echo OFF\n";
         file << "ninja -f ./build/Debug/buildx86.ninja -v\n";
-
-        if(extraDebugOptions)
-        {
-            k += "-fsanitize=address ";
-        }
-        if(includeWindowsStuff)
-        {
-            k += "%WLIBPATH32% %WLIBVALUES% ";
-        }
-        k+= "./bin/Debug/x86/obj/*.o -o ./bin/Debug/x86/";
-        
-        file << k;
+        file << "\"C:\\Program Files (x86)\\LLVM\\bin\\clang\" -g ./bin/Debug/x86/obj/*.o -o ./bin/Debug/x86/";
         file << projectName;
         file << ".exe";
     }
 
     file.close();
 
-    //x64 version RELEASE
     file = std::fstream(startDir + "build/Release/buildx64.bat", std::fstream::out | std::fstream::binary);
     
-    k = "clang -O3 ";
     if(file.is_open())
     {
         file << "@echo OFF\n";
         file << "ninja -f ./build/Release/buildx64.ninja -v\n";
-
-        if(includeWindowsStuff)
-        {
-            k += "%WLIBPATH64% %WLIBVALUES% ";
-        }
-        k += "./bin/Release/x64/obj/*.o -o ./bin/Release/x64/";
-
-        file << k;
+        file << "clang -O3 ./bin/Release/x64/obj/*.o -o ./bin/Release/x64/";
         file << projectName;
         file << ".exe";
     }
 
     file.close();
 
-    //x86 version RELEASE
+    //x86 version
     file = std::fstream(startDir + "build/Release/buildx86.bat", std::fstream::out | std::fstream::binary);
     
-    k = "\"C:\\Program Files (x86)\\LLVM\\bin\\clang\" -O3 ";
     if(file.is_open())
     {
         file << "@echo OFF\n";
         file << "ninja -f ./build/Release/buildx86.ninja -v\n";
-
-        if(includeWindowsStuff)
-        {
-            k += "%WLIBPATH32% %WLIBVALUES% ";
-        }
-        k += "./bin/Release/x86/obj/*.o -o ./bin/Release/x86/";
-
-        file << k;
+        file << "\"C:\\Program Files (x86)\\LLVM\\bin\\clang\" -O3 ./bin/Release/x86/obj/*.o -o ./bin/Release/x86/";
         file << projectName;
         file << ".exe";
     }
-
-    file.close();
-}
-
-void createStaticLibFiles()
-{
-    //buildALL
-    
-    std::fstream file(startDir + "exportLib/exportAllLibs.bat", std::fstream::out | std::fstream::binary);
-    file << "@echo OFF\n";
-    file << "ar -rcs exportLib/Debug/x64/"+projectName+".lib bin/Debug/x64/obj/*.o\n";
-    file << "ar -rcs exportLib/Debug/x86/"+projectName+".lib bin/Debug/x86/obj/*.o\n";
-    file << "\n";
-    file << "ar -rcs exportLib/Release/x64/"+projectName+".lib bin/Release/x64/obj/*.o\n";
-    file << "ar -rcs exportLib/Release/x86/"+projectName+".lib bin/Release/x86/obj/*.o\n";
-
-    file.close();
-
-    //build All Debug Only
-    file = std::fstream(startDir + "exportLib/Debug/exportAllDebug.bat", std::fstream::out | std::fstream::binary);
-    file << "@echo OFF\n";
-    file << "ar -rcs exportLib/Debug/x64/"+projectName+".lib bin/Debug/x64/obj/*.o\n";
-    file << "ar -rcs exportLib/Debug/x86/"+projectName+".lib bin/Debug/x86/obj/*.o\n";
-
-    file.close();
-
-    //build All Release Only
-    file = std::fstream(startDir + "exportLib/Release/exportAllRelease.bat", std::fstream::out | std::fstream::binary);
-    file << "@echo OFF\n";
-    file << "ar -rcs exportLib/Release/x64/"+projectName+".lib bin/Release/x64/obj/*.o\n";
-    file << "ar -rcs exportLib/Release/x86/"+projectName+".lib bin/Release/x86/obj/*.o\n";
-
-    file.close();
-
-    //build Debug x86
-    file = std::fstream(startDir + "exportLib/Debug/exportLibx86.bat", std::fstream::out | std::fstream::binary);
-    file << "@echo OFF\n";
-    file << "ar -rcs exportLib/Debug/x86/"+projectName+".lib bin/Debug/x86/obj/*.o\n";
-
-    file.close();
-
-    //build Debug x64
-    file = std::fstream(startDir + "exportLib/Debug/exportLibx64.bat", std::fstream::out | std::fstream::binary);
-    file << "@echo OFF\n";
-    file << "ar -rcs exportLib/Debug/x64/"+projectName+".lib bin/Debug/x64/obj/*.o\n";
-
-    file.close();
-
-    //build Release x86
-    file = std::fstream(startDir + "exportLib/Release/exportLibx86.bat", std::fstream::out | std::fstream::binary);
-    file << "@echo OFF\n";
-    file << "ar -rcs exportLib/Release/x86/"+projectName+".lib bin/Release/x86/obj/*.o\n";
-
-    file.close();
-
-    //build Release x64
-    file = std::fstream(startDir + "exportLib/Release/exportLibx64.bat", std::fstream::out | std::fstream::binary);
-    file << "@echo OFF\n";
-    file << "ar -rcs exportLib/Release/x64/"+projectName+".lib bin/Release/x64/obj/*.o\n";
 
     file.close();
 }
@@ -514,71 +362,38 @@ int main(int argc, const char* argv[])
 {
     bool valid = true;
     bool update = false;
-    bool collectingAdditionalOptions = false;
-
     if(argc>1)
     {
         int i=1;
         while(i<argc)
         {
-            if( std::strcmp("-help", argv[i]) == 0 || std::strcmp("-h", argv[i]) == 0)
+            if(std::strcmp("-help", argv[i]) == 0)
             {
                 helpFunc();
-                collectingAdditionalOptions = false;
                 return 0;
                 break;
             }
             else if(std::strcmp("-v", argv[i]) == 0)
             {
-                std::cout << "Version 0.3" << std::endl;
-                collectingAdditionalOptions = false;
+                std::cout << "Version 0.2" << std::endl;
                 return 0;
                 break;
             }
             else if(std::strcmp("-u", argv[i]) == 0)
             {
                 update = true;
-                collectingAdditionalOptions = false;
             }
             else if(std::strcmp("-f", argv[i]) == 0)
             {
                 //setDirectory
                 startDir = argv[i+1];
                 i++;
-                collectingAdditionalOptions = false;
             }
             else if(std::strcmp("-n", argv[i]) == 0)
             {
                 //setName
                 projectName = argv[i+1];
                 i++;
-                collectingAdditionalOptions = false;
-            }
-            else if(std::strcmp("-o", argv[i]) == 0)
-            {
-                //additional options
-                collectingAdditionalOptions = true;
-            }
-            else if(collectingAdditionalOptions)
-            {
-                if(std::strcmp("Include_Windows", argv[i]) == 0)
-                {
-                    includeWindowsStuff = true;
-                }
-                else if(std::strcmp("Static_Library", argv[i]) == 0)
-                {
-                    isStaticLibrary = true;
-                }
-                else if(std::strcmp("Ext_Debug_Flags", argv[i]) == 0)
-                {
-                    extraDebugOptions = true;
-                }
-                else
-                {
-                    //invalid
-                    valid = false;
-                    break;
-                }
             }
             else
             {
@@ -589,6 +404,12 @@ int main(int argc, const char* argv[])
 
             i++;
         }
+    }
+    else
+    {
+        std::cout << "Version 0.2" << std::endl;
+        std::cout << "type -h for help" << std::endl;
+        return 0;
     }
     
     if(valid == false)
@@ -606,15 +427,7 @@ int main(int argc, const char* argv[])
                 std::cout << "Setting project name to default" << std::endl;
                 projectName = "output";
             }
-            if(startDir=="")
-            {
-                startDir = "./";
-            }
-            else
-            {
-                startDir += "/";
-            }
-
+            startDir += "./";
             std::cout << "Creating directories" << std::endl;
             createDirectories();
 
@@ -626,12 +439,6 @@ int main(int argc, const char* argv[])
 
             std::cout << "Creating .bat files for simple building" << std::endl;
             createBatchFile();
-
-            if(isStaticLibrary==true)
-            {
-                std::cout << "Creating files for static library building" << std::endl;
-                createStaticLibFiles();
-            }
         }
         else
         {
