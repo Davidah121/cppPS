@@ -632,7 +632,7 @@ int main(int argc, const char* argv[])
             }
             else if(std::strcmp("-v", argv[i]) == 0)
             {
-                std::cout << "Version 0.3" << std::endl;
+                std::cout << "Version 0.4" << std::endl;
                 collectingAdditionalOptions = false;
                 return 0;
                 break;
