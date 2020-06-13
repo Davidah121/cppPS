@@ -25,13 +25,26 @@
 <ul>
  <li>-v<br>This reports the version of this tool.</li>
  <br>
- <li>-help<br>This list the commands, what they do, and what the tool does.</li>
+ <li>-help or -h<br>This list the commands, what they do, and what the tool does.</li>
  <br>
  <li>-f<br>This selects a directory for the tool.</li>
  <br>
  <li>-n<br>This set the project name which will determine the output files name (Not Required).</li>
  <br>
  <li>-u<br>This update a project setup by this tool at the current directory. Should be called when you change anything in the src folder.</li>
+ <br>
+ <li>-o<br>This allows setting different options for building the project such as setting it to be a static library.</li>
+</ul>
+
+<h1>Additional Options</h1>
+<ul>
+ <li>Include_Windows<br>Includes the windows headers and libraries for both x86 and x64. Done through environment variables</li>
+ <br>
+ <li>Static_Library<br>Sets the project up for building a static library. Other builds are still included.</li>
+ <br>
+ <li>Dynamic_Library<br>Sets the project up for building a dynamic library. Other builds are still included.</li>
+ <br>
+ <li>Ext_Debug_Flags<br>Adds additional debug options to the debug build of the project.</li>
 </ul>
 
 <h1>Notes</h1>

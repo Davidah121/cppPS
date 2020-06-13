@@ -9,7 +9,10 @@ std::string projectName = "";
 //additional rules
 bool includeWindowsStuff = false;
 bool isStaticLibrary = false;
+bool isDynamicLibrary = false;
 bool extraDebugOptions = false;
+
+namespace fs = std::filesystem;
 
 void helpFunc()
 {
@@ -30,13 +33,14 @@ void helpFunc()
     std::cout << "----------------------------" << std::endl;
     std::cout << "Additional Options:" << std::endl;
     std::cout << "Include_Windows   Includes the windows headers and libraries for both x86 and x64." << std::endl;
-    std::cout << "Static_Library    Sets the project up for building a static library. EXE build is still included." << std::endl;
+    std::cout << "Static_Library    Sets the project up for building a static library. Other builds are still included." << std::endl;
+    std::cout << "Dynamic_Library   Sets the project up for building a dynamic library. Other builds are still included." << std::endl;
     std::cout << "Ext_Debug_Flags   Adds additional debug options to the debug build of the project." << std::endl;
 }
 
 void createDir(std::string t)
 {
-    namespace fs = std::experimental::filesystem;
+    
     //figure out if it has the slash at the back
     if(startDir[startDir.size()-1]!='/')
     {
@@ -49,7 +53,6 @@ void createDir(std::string t)
 
 bool createDirectories()
 {
-    namespace fs = std::experimental::filesystem;
     
     if(fs::is_directory(startDir))
     {
@@ -78,16 +81,30 @@ bool createDirectories()
 
         if(isStaticLibrary)
         {
-            createDir("exportLib");
+            createDir("exportStaticLib");
 
-            createDir("exportLib/Debug");
-            createDir("exportLib/Release");
+            createDir("exportStaticLib/Debug");
+            createDir("exportStaticLib/Release");
 
-            createDir("exportLib/Debug/x86");
-            createDir("exportLib/Debug/x64");
+            createDir("exportStaticLib/Debug/x86");
+            createDir("exportStaticLib/Debug/x64");
             
-            createDir("exportLib/Release/x86");
-            createDir("exportLib/Release/x64");
+            createDir("exportStaticLib/Release/x86");
+            createDir("exportStaticLib/Release/x64");
+        }
+
+        if(isDynamicLibrary)
+        {
+            createDir("exportDynamicLib");
+
+            createDir("exportDynamicLib/Debug");
+            createDir("exportDynamicLib/Release");
+
+            createDir("exportDynamicLib/Debug/x86");
+            createDir("exportDynamicLib/Debug/x64");
+            
+            createDir("exportDynamicLib/Release/x86");
+            createDir("exportDynamicLib/Release/x64");
         }
     }
     else
@@ -200,7 +217,6 @@ void createNinjaFilex64()
         //build $objDir/Person.o: buildToObject src/Person.cpp
 
         file << "## build all of the objects and the executable\n";
-        namespace fs = std::experimental::filesystem;
         std::string srcDir = startDir+"/src";
 
         for(fs::directory_entry f : fs::directory_iterator(srcDir))
@@ -241,7 +257,6 @@ void createNinjaFilex64()
         //build $objDir/Person.o: buildToObject src/Person.cpp
 
         file << "## build all of the objects and the executable\n";
-        namespace fs = std::experimental::filesystem;
         std::string srcDir = startDir+"/src";
 
         for(fs::directory_entry f : fs::directory_iterator(srcDir))
@@ -286,7 +301,6 @@ void createNinjaFilex86()
         //build $objDir/Person.o: buildToObject src/Person.cpp
 
         file << "## build all of the objects and the executable\n";
-        namespace fs = std::experimental::filesystem;
         std::string srcDir = startDir+"/src";
 
         for(fs::directory_entry f : fs::directory_iterator(srcDir))
@@ -327,7 +341,6 @@ void createNinjaFilex86()
         //build $objDir/Person.o: buildToObject src/Person.cpp
 
         file << "## build all of the objects and the executable\n";
-        namespace fs = std::experimental::filesystem;
         std::string srcDir = startDir+"/src";
 
         for(fs::directory_entry f : fs::directory_iterator(srcDir))
@@ -455,57 +468,146 @@ void createStaticLibFiles()
 {
     //buildALL
     
-    std::fstream file(startDir + "exportLib/exportAllLibs.bat", std::fstream::out | std::fstream::binary);
+    std::fstream file(startDir + "exportStaticLib/exportAllLibs.bat", std::fstream::out | std::fstream::binary);
     file << "@echo OFF\n";
-    file << "ar -rcs exportLib/Debug/x64/"+projectName+".lib bin/Debug/x64/obj/*.o\n";
-    file << "ar -rcs exportLib/Debug/x86/"+projectName+".lib bin/Debug/x86/obj/*.o\n";
+    file << "ar -rcs exportStaticLib/Debug/x64/"+projectName+".lib bin/Debug/x64/obj/*.o\n";
+    file << "ar -rcs exportStaticLib/Debug/x86/"+projectName+".lib bin/Debug/x86/obj/*.o\n";
     file << "\n";
-    file << "ar -rcs exportLib/Release/x64/"+projectName+".lib bin/Release/x64/obj/*.o\n";
-    file << "ar -rcs exportLib/Release/x86/"+projectName+".lib bin/Release/x86/obj/*.o\n";
+    file << "ar -rcs exportStaticLib/Release/x64/"+projectName+".lib bin/Release/x64/obj/*.o\n";
+    file << "ar -rcs exportStaticLib/Release/x86/"+projectName+".lib bin/Release/x86/obj/*.o\n";
 
     file.close();
 
     //build All Debug Only
-    file = std::fstream(startDir + "exportLib/Debug/exportAllDebug.bat", std::fstream::out | std::fstream::binary);
+    file = std::fstream(startDir + "exportStaticLib/Debug/exportAllDebug.bat", std::fstream::out | std::fstream::binary);
     file << "@echo OFF\n";
-    file << "ar -rcs exportLib/Debug/x64/"+projectName+".lib bin/Debug/x64/obj/*.o\n";
-    file << "ar -rcs exportLib/Debug/x86/"+projectName+".lib bin/Debug/x86/obj/*.o\n";
+    file << "ar -rcs exportStaticLib/Debug/x64/"+projectName+".lib bin/Debug/x64/obj/*.o\n";
+    file << "ar -rcs exportStaticLib/Debug/x86/"+projectName+".lib bin/Debug/x86/obj/*.o\n";
 
     file.close();
 
     //build All Release Only
-    file = std::fstream(startDir + "exportLib/Release/exportAllRelease.bat", std::fstream::out | std::fstream::binary);
+    file = std::fstream(startDir + "exportStaticLib/Release/exportAllRelease.bat", std::fstream::out | std::fstream::binary);
     file << "@echo OFF\n";
-    file << "ar -rcs exportLib/Release/x64/"+projectName+".lib bin/Release/x64/obj/*.o\n";
-    file << "ar -rcs exportLib/Release/x86/"+projectName+".lib bin/Release/x86/obj/*.o\n";
+    file << "ar -rcs exportStaticLib/Release/x64/"+projectName+".lib bin/Release/x64/obj/*.o\n";
+    file << "ar -rcs exportStaticLib/Release/x86/"+projectName+".lib bin/Release/x86/obj/*.o\n";
 
     file.close();
 
     //build Debug x86
-    file = std::fstream(startDir + "exportLib/Debug/exportLibx86.bat", std::fstream::out | std::fstream::binary);
+    file = std::fstream(startDir + "exportStaticLib/Debug/exportLibx86.bat", std::fstream::out | std::fstream::binary);
     file << "@echo OFF\n";
-    file << "ar -rcs exportLib/Debug/x86/"+projectName+".lib bin/Debug/x86/obj/*.o\n";
+    file << "ar -rcs exportStaticLib/Debug/x86/"+projectName+".lib bin/Debug/x86/obj/*.o\n";
 
     file.close();
 
     //build Debug x64
-    file = std::fstream(startDir + "exportLib/Debug/exportLibx64.bat", std::fstream::out | std::fstream::binary);
+    file = std::fstream(startDir + "exportStaticLib/Debug/exportLibx64.bat", std::fstream::out | std::fstream::binary);
     file << "@echo OFF\n";
-    file << "ar -rcs exportLib/Debug/x64/"+projectName+".lib bin/Debug/x64/obj/*.o\n";
+    file << "ar -rcs exportStaticLib/Debug/x64/"+projectName+".lib bin/Debug/x64/obj/*.o\n";
 
     file.close();
 
     //build Release x86
-    file = std::fstream(startDir + "exportLib/Release/exportLibx86.bat", std::fstream::out | std::fstream::binary);
+    file = std::fstream(startDir + "exportStaticLib/Release/exportLibx86.bat", std::fstream::out | std::fstream::binary);
     file << "@echo OFF\n";
-    file << "ar -rcs exportLib/Release/x86/"+projectName+".lib bin/Release/x86/obj/*.o\n";
+    file << "ar -rcs exportStaticLib/Release/x86/"+projectName+".lib bin/Release/x86/obj/*.o\n";
 
     file.close();
 
     //build Release x64
-    file = std::fstream(startDir + "exportLib/Release/exportLibx64.bat", std::fstream::out | std::fstream::binary);
+    file = std::fstream(startDir + "exportStaticLib/Release/exportLibx64.bat", std::fstream::out | std::fstream::binary);
     file << "@echo OFF\n";
-    file << "ar -rcs exportLib/Release/x64/"+projectName+".lib bin/Release/x64/obj/*.o\n";
+    file << "ar -rcs exportStaticLib/Release/x64/"+projectName+".lib bin/Release/x64/obj/*.o\n";
+
+    file.close();
+}
+
+void createDynamicLibFiles()
+{    
+    std::string k = "";
+
+    //clang -shared -I ./include %WLIBPATH32% %WLIBVALUES% bin/debug/x86/obj/*.o -o exportDynamicLib/debug/x64/"projectName".dll
+
+    std::fstream file(startDir + "exportDynamicLib/Debug/exportLibx86.bat", std::fstream::out | std::fstream::binary);
+    k = "@echo OFF\n";
+    k += "\"C:\\Program Files (x86)\\LLVM\\bin\\clang\" ";
+    if(extraDebugOptions)
+    {
+        k += "-fsanitize=address ";
+    }
+    if(includeWindowsStuff)
+    {
+        k += "%WLIBPATH32% %WLIBVALUES% ";
+    }
+    k += "bin/Debug/x86/obj/*.o";
+    k += "-o exportDynamicLib/Debug/x86" + projectName + ".dll";
+    file << k;
+    file.close();
+
+    file = std::fstream(startDir + "exportDynamicLib/Debug/exportLibx64.bat", std::fstream::out | std::fstream::binary);
+    k = "@echo OFF\n";
+    k += "clang ";
+    if(extraDebugOptions)
+    {
+        k += "-fsanitize=address ";
+    }
+    if(includeWindowsStuff)
+    {
+        k += "%WLIBPATH64% %WLIBVALUES% ";
+    }
+    k += "bin/Debug/x64/obj/*.o";
+    k += "-o exportDynamicLib/Debug/64" + projectName + ".dll";
+    file << k;
+    file.close();
+    
+    file = std::fstream(startDir + "exportDynamicLib/Release/exportLibx86.bat", std::fstream::out | std::fstream::binary);
+    k = "@echo OFF\n";
+    k += "\"C:\\Program Files (x86)\\LLVM\\bin\\clang\" -O3 ";
+    if(includeWindowsStuff)
+    {
+        k += "%WLIBPATH32% %WLIBVALUES% ";
+    }
+    k += "bin/Release/x86/obj/*.o";
+    k += "-o exportDynamicLib/Release/x86" + projectName + ".dll";
+    file << k;
+    file.close();
+
+    file = std::fstream(startDir + "exportDynamicLib/Release/exportLibx64.bat", std::fstream::out | std::fstream::binary);
+    k = "@echo OFF\n";
+    k += "clang -O3 ";
+    if(includeWindowsStuff)
+    {
+        k += "%WLIBPATH64% %WLIBVALUES% ";
+    }
+    k += "bin/Release/x64/obj/*.o";
+    k += "-o exportDynamicLib/Release/64" + projectName + ".dll";
+    file << k;
+    file.close();
+
+    file = std::fstream(startDir + "exportDynamicLib/exportAllLibs.bat", std::fstream::out | std::fstream::binary);
+    file << "@echo OFF\n";
+    file << "Debug/exportLibx86.bat\n";
+    file << "Debug/exportLibx64.bat\n";
+    file << "\n";
+    file << "Release/exportLibx86.bat\n";
+    file << "Release/exportLibx64.bat\n";
+
+    file.close();
+
+    //build All Debug Only
+    file = std::fstream(startDir + "exportDynamicLib/Debug/exportAllDebug.bat", std::fstream::out | std::fstream::binary);
+    file << "@echo OFF\n";
+    file << "exportLibx86.bat\n";
+    file << "exportLibx64.bat\n";
+
+    file.close();
+
+    //build All Release Only
+    file = std::fstream(startDir + "exportDynamicLib/Release/exportAllRelease.bat", std::fstream::out | std::fstream::binary);
+    file << "@echo OFF\n";
+    file << "exportLibx86.bat\n";
+    file << "exportLibx64.bat\n";
 
     file.close();
 }
@@ -573,6 +675,10 @@ int main(int argc, const char* argv[])
                 {
                     extraDebugOptions = true;
                 }
+                else if(std::strcmp("Dynamic_Library", argv[i]) == 0)
+                {
+                    isDynamicLibrary = true;
+                }
                 else
                 {
                     //invalid
@@ -631,6 +737,12 @@ int main(int argc, const char* argv[])
             {
                 std::cout << "Creating files for static library building" << std::endl;
                 createStaticLibFiles();
+            }
+
+            if(isDynamicLibrary==true)
+            {
+                std::cout << "Creating files for dynamic library building" << std::endl;
+                createDynamicLibFiles();
             }
         }
         else
