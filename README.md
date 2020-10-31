@@ -45,6 +45,8 @@
  <li>Dynamic_Library<br>Sets the project up for building a dynamic library. Other builds are still included.</li>
  <br>
  <li>Ext_Debug_Flags<br>Adds additional debug options to the debug build of the project.</li>
+ <br>
+ <li>VSCode_Files<br>Adds settings files for vscode to build and launch the program.</li>
 </ul>
 
 <h1>Notes</h1>
