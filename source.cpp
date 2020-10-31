@@ -11,6 +11,7 @@ bool includeWindowsStuff = false;
 bool isStaticLibrary = false;
 bool isDynamicLibrary = false;
 bool extraDebugOptions = false;
+bool vscodeOptions = false;
 
 namespace fs = std::filesystem;
 
@@ -36,6 +37,7 @@ void helpFunc()
     std::cout << "Static_Library    Sets the project up for building a static library. Other builds are still included." << std::endl;
     std::cout << "Dynamic_Library   Sets the project up for building a dynamic library. Other builds are still included." << std::endl;
     std::cout << "Ext_Debug_Flags   Adds additional debug options to the debug build of the project." << std::endl;
+    std::cout << "VSCode_Files      Adds settings files for vscode to build and launch the program." << std::endl;
 }
 
 void createDir(std::string t)
@@ -105,6 +107,11 @@ bool createDirectories()
             
             createDir("exportDynamicLib/Release/x86");
             createDir("exportDynamicLib/Release/x64");
+        }
+
+        if(vscodeOptions)
+        {
+            createDir(".vscode");
         }
     }
     else
@@ -540,7 +547,7 @@ void createDynamicLibFiles()
     {
         k += "%WLIBPATH32% %WLIBVALUES% ";
     }
-    k += "bin/Debug/x86/obj/*.o";
+    k += "-shared bin/Debug/x86/obj/*.o ";
     k += "-o exportDynamicLib/Debug/x86" + projectName + ".dll";
     file << k;
     file.close();
@@ -556,8 +563,8 @@ void createDynamicLibFiles()
     {
         k += "%WLIBPATH64% %WLIBVALUES% ";
     }
-    k += "bin/Debug/x64/obj/*.o";
-    k += "-o exportDynamicLib/Debug/64" + projectName + ".dll";
+    k += "-shared bin/Debug/x64/obj/*.o ";
+    k += "-o exportDynamicLib/Debug/x64" + projectName + ".dll";
     file << k;
     file.close();
     
@@ -568,7 +575,7 @@ void createDynamicLibFiles()
     {
         k += "%WLIBPATH32% %WLIBVALUES% ";
     }
-    k += "bin/Release/x86/obj/*.o";
+    k += "-shared bin/Release/x86/obj/*.o ";
     k += "-o exportDynamicLib/Release/x86" + projectName + ".dll";
     file << k;
     file.close();
@@ -580,36 +587,198 @@ void createDynamicLibFiles()
     {
         k += "%WLIBPATH64% %WLIBVALUES% ";
     }
-    k += "bin/Release/x64/obj/*.o";
-    k += "-o exportDynamicLib/Release/64" + projectName + ".dll";
+    k += "-shared bin/Release/x64/obj/*.o ";
+    k += "-o exportDynamicLib/Release/x64" + projectName + ".dll";
     file << k;
     file.close();
 
     file = std::fstream(startDir + "exportDynamicLib/exportAllLibs.bat", std::fstream::out | std::fstream::binary);
     file << "@echo OFF\n";
-    file << "Debug/exportLibx86.bat\n";
-    file << "Debug/exportLibx64.bat\n";
+    file << "\"./exportDynamicLib/Debug/exportLibx86.bat\"\n";
+    file << "\"./exportDynamicLib/Debug/exportLibx64.bat\"\n";
     file << "\n";
-    file << "Release/exportLibx86.bat\n";
-    file << "Release/exportLibx64.bat\n";
+    file << "\"./exportDynamicLib/Release/exportLibx86.bat\"\n";
+    file << "\"./exportDynamicLib/Release/exportLibx64.bat\"\n";
 
     file.close();
 
     //build All Debug Only
     file = std::fstream(startDir + "exportDynamicLib/Debug/exportAllDebug.bat", std::fstream::out | std::fstream::binary);
     file << "@echo OFF\n";
-    file << "exportLibx86.bat\n";
-    file << "exportLibx64.bat\n";
+    file << "\"./exportDynamicLib/Debug/exportLibx86.bat\"\n";
+    file << "\"./exportDynamicLib/Debug/exportLibx64.bat\"\n";
 
     file.close();
 
     //build All Release Only
     file = std::fstream(startDir + "exportDynamicLib/Release/exportAllRelease.bat", std::fstream::out | std::fstream::binary);
     file << "@echo OFF\n";
-    file << "exportLibx86.bat\n";
-    file << "exportLibx64.bat\n";
+    file << "\"./exportDynamicLib/Release/exportLibx86.bat\"\n";
+    file << "\"./exportDynamicLib/Release/exportLibx64.bat\"\n";
 
     file.close();
+}
+
+void addVSCodeOptions()
+{
+    std::string k = "";
+    std::fstream file = std::fstream(".vscode/c_cpp_properties.json", std::fstream::out);
+    if(file.is_open())
+    {
+        file << "{\n";
+        file << "\t\"configurations\": [\n";
+        file << "\t\t{\n";
+        file << "\t\t\t\"name\": \"Clang LLVM\",\n";
+        file << "\t\t\t\"includePath\": [\n";
+        file << "\t\t\t\t\"${workspaceFolder}/**\",\n";
+        file << "\t\t\t\t\"${workspaceFolder}/include/**\"\n";
+        file << "\t\t\t],\n";
+        file << "\t\t\t\"defines\": [\n";
+        file << "\t\t\t\t\"_DEBUG\",\n";
+        file << "\t\t\t\t\"UNICODE\",\n";
+        file << "\t\t\t\t\"_UNICODE\"\n";
+        file << "\t\t\t],\n";
+        file << "\t\t\t\"windowsSdkVersion\": \"10.0.18362.0\",\n";
+        file << "\t\t\t\"cStandard\": \"c11\",\n";
+        file << "\t\t\t\"intelliSenseMode\": \"msvc-x64\",\n";
+        file << "\t\t\t\"cppStandard\": \"c++17\"\n";
+        file << "\t\t}\n";
+        file << "\t],\n";
+        file << "\t\"version\": 4\n";
+        file << "}";
+        
+        file.close();
+    }
+    
+    std::fstream file2 = std::fstream(".vscode/tasks.json", std::fstream::out);
+    if(file2.is_open())
+    {
+        file2 << "{\n";
+        
+        file2 << "\t\"version\": \"2.0.0\",\n";
+        file2 << "\t\"tasks\": [\n";
+
+        //debug x64 build
+        file2 << "\t\t{\n";
+        file2 << "\t\t\t\"label\": \"Build Debug x64 with Clang\",\n";
+        file2 << "\t\t\t\"type\": \"shell\",\n";
+        file2 << "\t\t\t\"command\": \"${workspaceFolder}/build/Debug/buildx64.bat\",\n";
+        file2 << "\t\t\t\"group\": {\n";
+        file2 << "\t\t\t\t\"kind\": \"build\",\n";
+        file2 << "\t\t\t\t\"isDefault\": true\n";
+        file2 << "\t\t\t},\n";
+        file2 << "\t\t\t\"problemMatcher\": []\n";
+        file2 << "\t\t},\n";
+
+        //debug x86 build
+        file2 << "\t\t{\n";
+        file2 << "\t\t\t\"label\": \"Build Debug x86 with Clang\",\n";
+        file2 << "\t\t\t\"type\": \"shell\",\n";
+        file2 << "\t\t\t\"command\": \"${workspaceFolder}/build/Debug/buildx86.bat\",\n";
+        file2 << "\t\t\t\"group\": {\n";
+        file2 << "\t\t\t\t\"kind\": \"build\",\n";
+        file2 << "\t\t\t\t\"isDefault\": true\n";
+        file2 << "\t\t\t},\n";
+        file2 << "\t\t\t\"problemMatcher\": []\n";
+        file2 << "\t\t},\n";
+
+        //release x64 build
+        file2 << "\t\t{\n";
+        file2 << "\t\t\t\"label\": \"Build Release x64 with Clang\",\n";
+        file2 << "\t\t\t\"type\": \"shell\",\n";
+        file2 << "\t\t\t\"command\": \"${workspaceFolder}/build/Release/buildx64.bat\",\n";
+        file2 << "\t\t\t\"group\": {\n";
+        file2 << "\t\t\t\t\"kind\": \"build\",\n";
+        file2 << "\t\t\t\t\"isDefault\": true\n";
+        file2 << "\t\t\t},\n";
+        file2 << "\t\t\t\"problemMatcher\": []\n";
+        file2 << "\t\t},\n";
+
+        //release x86 build
+        file2 << "\t\t{\n";
+        file2 << "\t\t\t\"label\": \"Build Release x86 with Clang\",\n";
+        file2 << "\t\t\t\"type\": \"shell\",\n";
+        file2 << "\t\t\t\"command\": \"${workspaceFolder}/build/Release/buildx86.bat\",\n";
+        file2 << "\t\t\t\"group\": {\n";
+        file2 << "\t\t\t\t\"kind\": \"build\",\n";
+        file2 << "\t\t\t\t\"isDefault\": true\n";
+        file2 << "\t\t\t},\n";
+        file2 << "\t\t\t\"problemMatcher\": []\n";
+        file2 << "\t\t}\n";
+
+        file2 << "\t]\n";
+
+        file2 << "}\n";
+        file2.close();
+    }
+
+
+    std::fstream file3 = std::fstream(".vscode/launch.json", std::fstream::out);
+
+    if(file3.is_open())
+    {
+        file3 << "{\n";
+
+        file3 << "\t\"version\": \"0.2.0\",\n";
+        file3 << "\t\"configurations\": [\n";
+
+        //debug x64 run
+        file3 << "\t\t{\n";
+        file3 << "\t\t\t\"name\": \"Debug Launch x64\",\n";
+        file3 << "\t\t\t\"type\": \"cppvsdbg\",\n";
+        file3 << "\t\t\t\"request\": \"launch\",\n";
+        file3 << "\t\t\t\"program\": \"${workspaceFolder}/bin/Debug/x64/" << projectName << ".exe\",\n";
+        file3 << "\t\t\t\"args\": [],\n";
+        file3 << "\t\t\t\"stopAtEntry\": false,\n";
+        file3 << "\t\t\t\"cwd\": \"${workspaceFolder}\",\n";
+        file3 << "\t\t\t\"environment\": [],\n";
+        file3 << "\t\t\t\"externalConsole\": true\n";
+        file3 << "\t\t},\n";
+
+        //debug x86 run
+        file3 << "\t\t{\n";
+        file3 << "\t\t\t\"name\": \"Debug Launch x86\",\n";
+        file3 << "\t\t\t\"type\": \"cppvsdbg\",\n";
+        file3 << "\t\t\t\"request\": \"launch\",\n";
+        file3 << "\t\t\t\"program\": \"${workspaceFolder}/bin/Debug/x86/" << projectName << ".exe\",\n";
+        file3 << "\t\t\t\"args\": [],\n";
+        file3 << "\t\t\t\"stopAtEntry\": false,\n";
+        file3 << "\t\t\t\"cwd\": \"${workspaceFolder}\",\n";
+        file3 << "\t\t\t\"environment\": [],\n";
+        file3 << "\t\t\t\"externalConsole\": true\n";
+        file3 << "\t\t},\n";
+
+        //release x64 run
+        file3 << "\t\t{\n";
+        file3 << "\t\t\t\"name\": \"Release Launch x64\",\n";
+        file3 << "\t\t\t\"type\": \"cppvsdbg\",\n";
+        file3 << "\t\t\t\"request\": \"launch\",\n";
+        file3 << "\t\t\t\"program\": \"${workspaceFolder}/bin/Release/x64/" << projectName << ".exe\",\n";
+        file3 << "\t\t\t\"args\": [],\n";
+        file3 << "\t\t\t\"stopAtEntry\": false,\n";
+        file3 << "\t\t\t\"cwd\": \"${workspaceFolder}\",\n";
+        file3 << "\t\t\t\"environment\": [],\n";
+        file3 << "\t\t\t\"externalConsole\": true\n";
+        file3 << "\t\t},\n";
+
+        //release x86 run
+        file3 << "\t\t{\n";
+        file3 << "\t\t\t\"name\": \"Release Launch x86\",\n";
+        file3 << "\t\t\t\"type\": \"cppvsdbg\",\n";
+        file3 << "\t\t\t\"request\": \"launch\",\n";
+        file3 << "\t\t\t\"program\": \"${workspaceFolder}/bin/Release/x86/" << projectName << ".exe\",\n";
+        file3 << "\t\t\t\"args\": [],\n";
+        file3 << "\t\t\t\"stopAtEntry\": false,\n";
+        file3 << "\t\t\t\"cwd\": \"${workspaceFolder}\",\n";
+        file3 << "\t\t\t\"environment\": [],\n";
+        file3 << "\t\t\t\"externalConsole\": true\n";
+        file3 << "\t\t}\n";
+
+        file3 << "\t]\n";
+
+        file3 << "}";
+        file3.close();
+    }
 }
 
 int main(int argc, const char* argv[])
@@ -632,7 +801,7 @@ int main(int argc, const char* argv[])
             }
             else if(std::strcmp("-v", argv[i]) == 0)
             {
-                std::cout << "Version 0.4" << std::endl;
+                std::cout << "Version 1.0" << std::endl;
                 collectingAdditionalOptions = false;
                 return 0;
                 break;
@@ -678,6 +847,10 @@ int main(int argc, const char* argv[])
                 else if(std::strcmp("Dynamic_Library", argv[i]) == 0)
                 {
                     isDynamicLibrary = true;
+                }
+                else if(std::strcmp("VSCode_Files", argv[i]) == 0)
+                {
+                    vscodeOptions = true;
                 }
                 else
                 {
@@ -743,6 +916,12 @@ int main(int argc, const char* argv[])
             {
                 std::cout << "Creating files for dynamic library building" << std::endl;
                 createDynamicLibFiles();
+            }
+
+            if(vscodeOptions==true)
+            {
+                std::cout << "Create vscode files" << std::endl;
+                addVSCodeOptions();
             }
         }
         else
