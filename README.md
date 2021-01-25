@@ -54,3 +54,4 @@
 By default, this tool uses clang and outputs a batch file for easy compilation.<br>
 In the future, I would like to add customization for compilers and the outputs without modifying the .ninja files.<p>
 <p>This tool also makes a few assumptions. It assumes that you have both the x64 and x86 clang compilers installed along with ninja. It also assumes that the x86 compiler is in "Program Files (x86)". I would also like to improve upon this.</p>
+<p>Another assumption is that the Windows API libraries are availiable as Environment Variables called WLIBPATH32, WLIBPATH64, WLIBVALUES</p>
