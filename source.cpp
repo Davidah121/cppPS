@@ -1,4 +1,5 @@
 #include <iostream>
+#include <string>
 #include <fstream>
 #include <filesystem>
 
@@ -29,6 +30,7 @@ void helpFunc()
     std::cout << "-f    Change the target directory for this tool." << std::endl;
     std::cout << "-n    Sets the project's name to something other than output." << std::endl;
     std::cout << "-o    Set additional options." << std::endl;
+    std::cout << "-i    Sets the environment variables that this program depends on." << std::endl;
 
     std::cout << std::endl;
     std::cout << "----------------------------" << std::endl;
@@ -136,10 +138,14 @@ void createNinjaVarFilex64()
         file << "objDir = ./bin/Debug/x64/obj\n";
         file << "compiler = cmd /c clang\n";
 
+        file << "CXXFLAGS = -std=c++17";
+
         if(extraDebugOptions)
-            file << "compilerFlags = -c -g -std=c++17 -Wno-unused-command-line-argument -fsanitize=address\n";
+            file << " -fsanitize=address\n";
         else
-            file << "compilerFlags = -c -g -std=c++17 -Wno-unused-command-line-argument\n";
+            file << "\n";
+
+        file << "compilerFlags = -c -g CXXFLAGS -Wno-unused-command-line-argument\n";
     }
 
     file.close();
@@ -156,7 +162,9 @@ void createNinjaVarFilex64()
             
         file << "objDir = ./bin/Release/x64/obj\n";
         file << "compiler = cmd /c clang\n";
-        file << "compilerFlags = -c -O3 -std=c++17 -Wno-unused-command-line-argument\n";
+        file << "CXXFLAGS = -std=c++17 -O3\n";
+
+        file << "compilerFlags = -c CXXFLAGS -Wno-unused-command-line-argument\n";
     }
 
     file.close();
@@ -174,12 +182,16 @@ void createNinjaVarFilex86()
             file << "inc = -I ./include\n";
 
         file << "objDir = ./bin/Debug/x86/obj\n";
-        file << "compiler = cmd /c \"C:\\Program Files (x86)\\LLVM\\bin\\clang\"\n";
+        file << "compiler = cmd /c %CLANG32%\n";
+
+        file << "CXXFLAGS = -std=c++17";
 
         if(extraDebugOptions)
-            file << "compilerFlags = -c -g -std=c++17 -Wno-unused-command-line-argument -fsanitize=address\n";
+            file << " -fsanitize=address\n";
         else
-            file << "compilerFlags = -c -g -std=c++17 -Wno-unused-command-line-argument\n";
+            file << "\n";
+
+        file << "compilerFlags = -c -g CXXFLAGS -Wno-unused-command-line-argument\n";
     }
 
     file.close();
@@ -194,9 +206,10 @@ void createNinjaVarFilex86()
             file << "inc = -I ./include\n";
             
         file << "objDir = ./bin/Release/x86/obj\n";
-        file << "compiler = cmd /c \"C:\\Program Files (x86)\\LLVM\\bin\\clang\"\n";
+        file << "compiler = cmd /c %CLANG32%\n";
+        file << "CXXFLAGS = -std=c++17 -O3\n";
 
-        file << "compilerFlags = -c -O3 -std=c++17 -Wno-unused-command-line-argument\n";
+        file << "compilerFlags = -c CXXFLAGS -Wno-unused-command-line-argument\n";
     }
 
     file.close();
@@ -403,7 +416,7 @@ void createBatchFile()
     //x86 version DEBUG
     file = std::fstream(startDir + "build/Debug/buildx86.bat", std::fstream::out | std::fstream::binary);
     
-    k = "\"C:\\Program Files (x86)\\LLVM\\bin\\clang\" -g ";
+    k = "%CLANG32% -g ";
     if(file.is_open())
     {
         file << "@echo OFF\n";
@@ -451,7 +464,7 @@ void createBatchFile()
     //x86 version RELEASE
     file = std::fstream(startDir + "build/Release/buildx86.bat", std::fstream::out | std::fstream::binary);
     
-    k = "\"C:\\Program Files (x86)\\LLVM\\bin\\clang\" -O3 ";
+    k = "%CLANG32% -O3 ";
     if(file.is_open())
     {
         file << "@echo OFF\n";
@@ -477,55 +490,55 @@ void createStaticLibFiles()
     
     std::fstream file(startDir + "exportStaticLib/exportAllLibs.bat", std::fstream::out | std::fstream::binary);
     file << "@echo OFF\n";
-    file << "ar -rcs exportStaticLib/Debug/x64/"+projectName+".lib bin/Debug/x64/obj/*.o\n";
-    file << "ar -rcs exportStaticLib/Debug/x86/"+projectName+".lib bin/Debug/x86/obj/*.o\n";
+    file << "llvm-ar -rcs exportStaticLib/Debug/x64/"+projectName+".lib bin/Debug/x64/obj/*.o\n";
+    file << "llvm-ar -rcs exportStaticLib/Debug/x86/"+projectName+".lib bin/Debug/x86/obj/*.o\n";
     file << "\n";
-    file << "ar -rcs exportStaticLib/Release/x64/"+projectName+".lib bin/Release/x64/obj/*.o\n";
-    file << "ar -rcs exportStaticLib/Release/x86/"+projectName+".lib bin/Release/x86/obj/*.o\n";
+    file << "llvm-ar -rcs exportStaticLib/Release/x64/"+projectName+".lib bin/Release/x64/obj/*.o\n";
+    file << "llvm-ar -rcs exportStaticLib/Release/x86/"+projectName+".lib bin/Release/x86/obj/*.o\n";
 
     file.close();
 
     //build All Debug Only
     file = std::fstream(startDir + "exportStaticLib/Debug/exportAllDebug.bat", std::fstream::out | std::fstream::binary);
     file << "@echo OFF\n";
-    file << "ar -rcs exportStaticLib/Debug/x64/"+projectName+".lib bin/Debug/x64/obj/*.o\n";
-    file << "ar -rcs exportStaticLib/Debug/x86/"+projectName+".lib bin/Debug/x86/obj/*.o\n";
+    file << "llvm-ar -rcs exportStaticLib/Debug/x64/"+projectName+".lib bin/Debug/x64/obj/*.o\n";
+    file << "llvm-ar -rcs exportStaticLib/Debug/x86/"+projectName+".lib bin/Debug/x86/obj/*.o\n";
 
     file.close();
 
     //build All Release Only
     file = std::fstream(startDir + "exportStaticLib/Release/exportAllRelease.bat", std::fstream::out | std::fstream::binary);
     file << "@echo OFF\n";
-    file << "ar -rcs exportStaticLib/Release/x64/"+projectName+".lib bin/Release/x64/obj/*.o\n";
-    file << "ar -rcs exportStaticLib/Release/x86/"+projectName+".lib bin/Release/x86/obj/*.o\n";
+    file << "llvm-ar -rcs exportStaticLib/Release/x64/"+projectName+".lib bin/Release/x64/obj/*.o\n";
+    file << "llvm-ar -rcs exportStaticLib/Release/x86/"+projectName+".lib bin/Release/x86/obj/*.o\n";
 
     file.close();
 
     //build Debug x86
     file = std::fstream(startDir + "exportStaticLib/Debug/exportLibx86.bat", std::fstream::out | std::fstream::binary);
     file << "@echo OFF\n";
-    file << "ar -rcs exportStaticLib/Debug/x86/"+projectName+".lib bin/Debug/x86/obj/*.o\n";
+    file << "llvm-ar -rcs exportStaticLib/Debug/x86/"+projectName+".lib bin/Debug/x86/obj/*.o\n";
 
     file.close();
 
     //build Debug x64
     file = std::fstream(startDir + "exportStaticLib/Debug/exportLibx64.bat", std::fstream::out | std::fstream::binary);
     file << "@echo OFF\n";
-    file << "ar -rcs exportStaticLib/Debug/x64/"+projectName+".lib bin/Debug/x64/obj/*.o\n";
+    file << "llvm-ar -rcs exportStaticLib/Debug/x64/"+projectName+".lib bin/Debug/x64/obj/*.o\n";
 
     file.close();
 
     //build Release x86
     file = std::fstream(startDir + "exportStaticLib/Release/exportLibx86.bat", std::fstream::out | std::fstream::binary);
     file << "@echo OFF\n";
-    file << "ar -rcs exportStaticLib/Release/x86/"+projectName+".lib bin/Release/x86/obj/*.o\n";
+    file << "llvm-ar -rcs exportStaticLib/Release/x86/"+projectName+".lib bin/Release/x86/obj/*.o\n";
 
     file.close();
 
     //build Release x64
     file = std::fstream(startDir + "exportStaticLib/Release/exportLibx64.bat", std::fstream::out | std::fstream::binary);
     file << "@echo OFF\n";
-    file << "ar -rcs exportStaticLib/Release/x64/"+projectName+".lib bin/Release/x64/obj/*.o\n";
+    file << "llvm-ar -rcs exportStaticLib/Release/x64/"+projectName+".lib bin/Release/x64/obj/*.o\n";
 
     file.close();
 }
@@ -538,7 +551,7 @@ void createDynamicLibFiles()
 
     std::fstream file(startDir + "exportDynamicLib/Debug/exportLibx86.bat", std::fstream::out | std::fstream::binary);
     k = "@echo OFF\n";
-    k += "\"C:\\Program Files (x86)\\LLVM\\bin\\clang\" ";
+    k += "%CLANG32% ";
     if(extraDebugOptions)
     {
         k += "-fsanitize=address ";
@@ -570,7 +583,7 @@ void createDynamicLibFiles()
     
     file = std::fstream(startDir + "exportDynamicLib/Release/exportLibx86.bat", std::fstream::out | std::fstream::binary);
     k = "@echo OFF\n";
-    k += "\"C:\\Program Files (x86)\\LLVM\\bin\\clang\" -O3 ";
+    k += "%CLANG32% -O3 ";
     if(includeWindowsStuff)
     {
         k += "%WLIBPATH32% %WLIBVALUES% ";
@@ -638,9 +651,9 @@ void addVSCodeOptions()
         file << "\t\t\t\t\"UNICODE\",\n";
         file << "\t\t\t\t\"_UNICODE\"\n";
         file << "\t\t\t],\n";
-        file << "\t\t\t\"windowsSdkVersion\": \"10.0.18362.0\",\n";
+        file << "\t\t\t\"windowsSdkVersion\": \"10.0.19041.0\",\n";
         file << "\t\t\t\"cStandard\": \"c11\",\n";
-        file << "\t\t\t\"intelliSenseMode\": \"msvc-x64\",\n";
+        file << "\t\t\t\"intelliSenseMode\": \"clang-x64\",\n";
         file << "\t\t\t\"cppStandard\": \"c++17\"\n";
         file << "\t\t}\n";
         file << "\t],\n";
@@ -725,53 +738,53 @@ void addVSCodeOptions()
         //debug x64 run
         file3 << "\t\t{\n";
         file3 << "\t\t\t\"name\": \"Debug Launch x64\",\n";
-        file3 << "\t\t\t\"type\": \"cppvsdbg\",\n";
+        file3 << "\t\t\t\"type\": \"lldb\",\n";
         file3 << "\t\t\t\"request\": \"launch\",\n";
         file3 << "\t\t\t\"program\": \"${workspaceFolder}/bin/Debug/x64/" << projectName << ".exe\",\n";
         file3 << "\t\t\t\"args\": [],\n";
         file3 << "\t\t\t\"stopAtEntry\": false,\n";
         file3 << "\t\t\t\"cwd\": \"${workspaceFolder}\",\n";
         file3 << "\t\t\t\"environment\": [],\n";
-        file3 << "\t\t\t\"externalConsole\": true\n";
+        file3 << "\t\t\t\"terminal\": \"external\"\n";
         file3 << "\t\t},\n";
 
         //debug x86 run
         file3 << "\t\t{\n";
         file3 << "\t\t\t\"name\": \"Debug Launch x86\",\n";
-        file3 << "\t\t\t\"type\": \"cppvsdbg\",\n";
+        file3 << "\t\t\t\"type\": \"lldb\",\n";
         file3 << "\t\t\t\"request\": \"launch\",\n";
         file3 << "\t\t\t\"program\": \"${workspaceFolder}/bin/Debug/x86/" << projectName << ".exe\",\n";
         file3 << "\t\t\t\"args\": [],\n";
         file3 << "\t\t\t\"stopAtEntry\": false,\n";
         file3 << "\t\t\t\"cwd\": \"${workspaceFolder}\",\n";
         file3 << "\t\t\t\"environment\": [],\n";
-        file3 << "\t\t\t\"externalConsole\": true\n";
+        file3 << "\t\t\t\"terminal\": \"external\"\n";
         file3 << "\t\t},\n";
 
         //release x64 run
         file3 << "\t\t{\n";
         file3 << "\t\t\t\"name\": \"Release Launch x64\",\n";
-        file3 << "\t\t\t\"type\": \"cppvsdbg\",\n";
+        file3 << "\t\t\t\"type\": \"lldb\",\n";
         file3 << "\t\t\t\"request\": \"launch\",\n";
         file3 << "\t\t\t\"program\": \"${workspaceFolder}/bin/Release/x64/" << projectName << ".exe\",\n";
         file3 << "\t\t\t\"args\": [],\n";
         file3 << "\t\t\t\"stopAtEntry\": false,\n";
         file3 << "\t\t\t\"cwd\": \"${workspaceFolder}\",\n";
         file3 << "\t\t\t\"environment\": [],\n";
-        file3 << "\t\t\t\"externalConsole\": true\n";
+        file3 << "\t\t\t\"terminal\": \"external\"\n";
         file3 << "\t\t},\n";
 
         //release x86 run
         file3 << "\t\t{\n";
         file3 << "\t\t\t\"name\": \"Release Launch x86\",\n";
-        file3 << "\t\t\t\"type\": \"cppvsdbg\",\n";
+        file3 << "\t\t\t\"type\": \"lldb\",\n";
         file3 << "\t\t\t\"request\": \"launch\",\n";
         file3 << "\t\t\t\"program\": \"${workspaceFolder}/bin/Release/x86/" << projectName << ".exe\",\n";
         file3 << "\t\t\t\"args\": [],\n";
         file3 << "\t\t\t\"stopAtEntry\": false,\n";
         file3 << "\t\t\t\"cwd\": \"${workspaceFolder}\",\n";
         file3 << "\t\t\t\"environment\": [],\n";
-        file3 << "\t\t\t\"externalConsole\": true\n";
+        file3 << "\t\t\t\"terminal\": \"external\"\n";
         file3 << "\t\t}\n";
 
         file3 << "\t]\n";
@@ -797,14 +810,55 @@ int main(int argc, const char* argv[])
                 helpFunc();
                 collectingAdditionalOptions = false;
                 return 0;
-                break;
             }
             else if(std::strcmp("-v", argv[i]) == 0)
             {
-                std::cout << "Version 1.0" << std::endl;
+                std::cout << "Version 1.1" << std::endl;
                 collectingAdditionalOptions = false;
                 return 0;
-                break;
+            }
+            else if(std::strcmp("-i", argv[i]) == 0)
+            {
+                std::string windowKitDir = "";
+                std::cout << "Enter in the directory of the windows kit: " << std::endl;
+                std::getline(std::cin, windowKitDir);
+                if(windowKitDir.back() != '\\' || windowKitDir.back() != '/')
+                {
+                    windowKitDir += '\\';
+                }
+
+                //-L "C:\Program Files (x86)\Windows Kits\10\lib\10.0.19041.0\ucrt\x86" -L "C:\Program Files (x86)\Windows Kits\10\lib\10.0.19041.0\um\x86"
+                //-L "C:\Program Files (x86)\Windows Kits\10\lib\10.0.19041.0\ucrt\x64" -L "C:\Program Files (x86)\Windows Kits\10\lib\10.0.19041.0\um\x64"
+                //-l kernel32.lib -l user32.lib -l gdi32.lib -l winspool.lib -l comdlg32.lib -l advapi32.lib -l shell32.lib -l ole32.lib -l oleaut32.lib -l uuid.lib -l odbc32.lib -l odbccp32.lib
+
+                std::string command1 = "SETX WLIBPATH32 ";
+                command1 += "\"-L \\\"";
+                command1 += windowKitDir;
+                command1 += "ucrt\\x86\\\" ";
+
+                command1 += "-L \\\"";
+                command1 += windowKitDir;
+                command1 += "um\\x86\\\"\"";
+
+                std::string command2 = "SETX WLIBPATH64 ";
+                command2 += "\"-L \\\"";
+                command2 += windowKitDir;
+                command2 += "ucrt\\x64\\\" ";
+
+                command2 += "-L \\\"";
+                command2 += windowKitDir;
+                command2 += "um\\x64\\\"\"";
+
+                std::string command3 = "SETX WLIBVALUES ";
+                command3 += "\"-l kernel32.lib -l user32.lib -l gdi32.lib -l winspool.lib -l comdlg32.lib -l advapi32.lib -l shell32.lib -l ole32.lib -l oleaut32.lib -l uuid.lib -l odbc32.lib -l odbccp32.lib\"";
+
+                std::cout << "Setting environment variables WLIBPATH32, WLIBPATH64, WLIBVALUES" << std::endl;
+
+                system(command1.c_str());
+                system(command2.c_str());
+                system(command3.c_str());
+                
+                return 0;
             }
             else if(std::strcmp("-u", argv[i]) == 0)
             {
@@ -920,7 +974,7 @@ int main(int argc, const char* argv[])
 
             if(vscodeOptions==true)
             {
-                std::cout << "Create vscode files" << std::endl;
+                std::cout << "Creating vscode files" << std::endl;
                 addVSCodeOptions();
             }
         }
