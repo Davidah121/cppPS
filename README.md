@@ -33,27 +33,38 @@
  <br>
  <li>-u<br>This update a project setup by this tool at the current directory. Should be called when you change anything in the src folder.</li>
  <br>
- <li>-o<br>This allows setting different options for building the project such as setting it to be a static library.</li>
- <br>
  <li>-i<br>This sets some environment variables that this tool uses such as WLIBVALUES.</li>
+ <br>
+ <li>-c<br>This sets a variable for the compiler that you wish to use. It can be a path. By default, it is "clang"</li>
+ <br>
+ <li>-ct<br>This sets a variable for the compiler type that you are using. This can be automatically set by -c. Will only detect gcc, clang, and msvc. </li>
+ <br>
 </ul>
 
 <h1>Additional Options</h1>
 <ul>
- <li>Include_Windows<br>Includes the windows headers and libraries for both x86 and x64. Done through environment variables</li>
+ <li>-Include_Windows<br>Includes the windows headers and libraries for both x86 and x64. Done through environment variables</li>
  <br>
- <li>Static_Library<br>Sets the project up for building a static library. Other builds are still included.</li>
+ <li>-Static_Library<br>Sets the project up for building a static library. Other builds are still included.</li>
  <br>
- <li>Dynamic_Library<br>Sets the project up for building a dynamic library. Other builds are still included.</li>
+ <li>-Dynamic_Library<br>Sets the project up for building a dynamic library. Other builds are still included.</li>
  <br>
- <li>Ext_Debug_Flags<br>Adds additional debug options to the debug build of the project.</li>
+ <li>-Ext_Debug_Flags<br>Adds additional debug options to the debug build of the project.</li>
  <br>
- <li>VSCode_Files<br>Adds settings files for vscode to build and launch the program.</li>
+ <li>-VSCode_Files<br>Adds settings files for vscode to build and launch the program.</li>
+ <br>
+ <li>-Exclude_x86<br>Removes the x86 build and launch options.</li>
+ <br>
+ <li>-Exclude_x64<br>Removes the x64 build and launch options.</li>
+ <br>
 </ul>
 
 <h1>Notes</h1>
 <p>This tool can be used with any compiler and operating system that ninja supports.<br>
-By default, this tool uses clang and outputs a batch file for easy compilation.<br>
-In the future, I would like to add customization for compilers and the outputs without modifying the .ninja files.<p>
-<p>This tool also makes a few assumptions. It assumes that you have both the x64 and x86 clang compilers installed along with ninja. It also assumes that the x86 compiler is in "Program Files (x86)". I would also like to improve upon this.</p>
-<p>Another assumption is that the Windows API libraries are availiable as Environment Variables called WLIBPATH32, WLIBPATH64, WLIBVALUES</p>
+By default, this tool uses clang and outputs a batch file for easy compilation.<br></p>
+
+<p>cppPS can now use any compiler specified through the -c option and assumes that<br>
+either gcc or msvc syntax will work. If they do not, the user must adjust the generated<br>
+files.</p>
+
+<p>cppPS can also generate the necessary environment variables to include windows by using the -i option.</p>
