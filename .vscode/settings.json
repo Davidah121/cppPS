@@ -48,6 +48,22 @@
         "xstddef": "cpp",
         "xstring": "cpp",
         "xtr1common": "cpp",
-        "xutility": "cpp"
+        "xutility": "cpp",
+        "array": "cpp",
+        "atomic": "cpp",
+        "bit": "cpp",
+        "cctype": "cpp",
+        "charconv": "cpp",
+        "clocale": "cpp",
+        "codecvt": "cpp",
+        "compare": "cpp",
+        "forward_list": "cpp",
+        "map": "cpp",
+        "string": "cpp",
+        "format": "cpp",
+        "iterator": "cpp",
+        "optional": "cpp",
+        "sstream": "cpp",
+        "xtree": "cpp"
     }
 }
