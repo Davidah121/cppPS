@@ -1,5 +1,6 @@
 #include <iostream>
 #include <string>
+#include <cstring>
 #include <fstream>
 #include <filesystem>
 
@@ -14,7 +15,7 @@
 std::string startDir = "";
 std::string projectName = "";
 
-std::string compilerName = "clang";
+std::string compilerName = "clang++";
 
 //additional rules
 bool includeWindowsStuff = false;
@@ -26,8 +27,15 @@ bool vscodeOptions = false;
 bool exclude86 = false;
 bool exclude64 = false;
 
+bool generateBatch = true;
+
+#ifdef LINUX
+    generateBatch = false;
+#endif
+
 char compilerType = TYPE_CLANG;
 bool compilerTypeSet = false;
+
 
 namespace fs = std::filesystem;
 
@@ -58,6 +66,8 @@ void helpFunc()
     std::cout << "-VSCode_Files      Adds settings files for vscode to build and launch the program." << std::endl;
     std::cout << "-Exclude_x86       Removes the x86 build and launch options." << std::endl;
     std::cout << "-Exclude_x64       Removes the x64 build and launch options." << std::endl;
+    std::cout << "-Generate_Batch    Generates batch build files regardless of the OS." << std::endl;
+    std::cout << "-Generate_Shell    Generates shell build files regardless of the OS." << std::endl;
 
     std::cout << std::endl;
     std::cout << "----------------------------" << std::endl;
@@ -219,13 +229,13 @@ void getCompilerType()
         {
             //space between '=' and the name
             std::string typeName = depsLine.substr(index+2);
-            if(typeName == "gcc")
+            if(typeName == "msvc")
             {
-                compilerType = TYPE_GCC;
+                compilerType = TYPE_MSVC;
             }
             else
             {
-                compilerType = TYPE_MSVC;
+                compilerType = TYPE_GCC;
             }
         }
 
@@ -253,8 +263,13 @@ void createNinjaVarFilex64()
                 file << "inc = -I ./include\n";
 
             file << "objDir = ./bin/Debug/x64/obj\n";
-            file << "compiler = cmd /c ";
-            file << (compilerName + " \n");
+
+            if(!generateBatch)
+                file << "compiler = ";
+            else
+                file << "compiler = cmd /c ";
+
+            file << (compilerName + "\n");
 
             if(compilerType!=TYPE_MSVC)
             {
@@ -293,8 +308,13 @@ void createNinjaVarFilex64()
                 file << "inc = -I ./include\n";
                 
             file << "objDir = ./bin/Release/x64/obj\n";
-            file << "compiler = cmd /c ";
-            file << (compilerName + " \n");
+
+            if(!generateBatch)
+                file << "compiler = ";
+            else
+                file << "compiler = cmd /c ";
+
+            file << (compilerName + "\n");
 
             if(compilerType!=TYPE_MSVC)
             {
@@ -328,8 +348,13 @@ void createNinjaVarFilex86()
                 file << "inc = -I ./include\n";
 
             file << "objDir = ./bin/Debug/x86/obj\n";
-            file << "compiler = cmd /c ";
-            file << (compilerName + " \n");
+
+            if(!generateBatch)
+                file << "compiler = ";
+            else
+                file << "compiler = cmd /c ";
+
+            file << (compilerName + "\n");
 
             if(compilerType!=TYPE_MSVC)
             {
@@ -367,8 +392,13 @@ void createNinjaVarFilex86()
                 file << "inc = -I ./include\n";
                 
             file << "objDir = ./bin/Release/x86/obj\n";
-            file << "compiler = cmd /c ";
-            file << (compilerName + " \n");
+
+            if(!generateBatch)
+                file << "compiler = ";
+            else
+                file << "compiler = cmd /c ";
+
+            file << (compilerName + "\n");
 
             if(compilerType!=TYPE_MSVC)
             {
@@ -385,6 +415,52 @@ void createNinjaVarFilex86()
         }
 
         file.close();
+    }
+}
+
+void addSubDirStuff(std::fstream& file, std::string srcDir, std::string dirName)
+{
+    for(fs::directory_entry f : fs::directory_iterator(srcDir))
+    {
+        if(fs::is_regular_file(f.path()))
+        {
+            std::string nameString = f.path().stem().string();
+            std::string extension = f.path().extension().string();
+            file << "build $objDir/";
+            file << nameString;
+            if(compilerType != TYPE_MSVC)
+                file << ".obj: buildToObject ";
+            else
+                file << ".o: buildToObject ";
+            file << dirName;
+            file << nameString;
+            file << extension;
+            file << "\n";
+        }
+        else if(fs::is_directory(f.path()))
+        {
+            size_t l1,l2,l3;
+            l1 = f.path().string().find_last_of('/');
+            l2 = f.path().string().find_last_of('\\');
+            if(l1==SIZE_MAX)
+            {
+                if(l2==SIZE_MAX)
+                    l3 = 0;
+                else
+                    l3 = l2;
+            }
+            else
+            {
+                if(l2==SIZE_MAX)
+                    l3 = l1;
+                else
+                    l3 = (l1 < l2)? l2 : l1;
+            }
+            
+            std::string folderName = f.path().string().substr(l3+1);
+            std::string newDirName = dirName+folderName+'/';
+            addSubDirStuff(file, f.path().string(), newDirName);
+        }
     }
 }
 
@@ -410,27 +486,6 @@ void createNinjaFilex64()
                 file << "   depfile = $out.d\n";
                 file << "   command = $compiler $compilerFlags $inc $in -o $out -MMD -MF $out.d\n";
                 file << "\n";
-
-                //proceed to build all objects using the same syntax as this
-                //build $objDir/Person.o: buildToObject src/Person.cpp
-
-                file << "## build all of the objects and the executable\n";
-                std::string srcDir = startDir+"/src";
-
-                for(fs::directory_entry f : fs::directory_iterator(srcDir))
-                {
-                    if(fs::is_regular_file(f.path()))
-                    {
-                        std::string nameString = f.path().stem().string();
-                        std::string extension = f.path().extension().string();
-                        file << "build $objDir/";
-                        file << nameString;
-                        file << ".obj: buildToObject src/";
-                        file << nameString;
-                        file << extension;
-                        file << "\n";
-                    }
-                }
             }
             else
             {
@@ -438,29 +493,15 @@ void createNinjaFilex64()
                 file << "   deps = msvc\n";
                 file << "   command = $compiler $compilerFlags $inc $in /showIncludes /Fo$out\n";
                 file << "\n";
-
-                //proceed to build all objects using the same syntax as this
-                //build $objDir/Person.o: buildToObject src/Person.cpp
-
-                file << "## build all of the objects and the executable\n";
-                std::string srcDir = startDir+"/src";
-
-                for(fs::directory_entry f : fs::directory_iterator(srcDir))
-                {
-                    if(fs::is_regular_file(f.path()))
-                    {
-                        std::string nameString = f.path().stem().string();
-                        std::string extension = f.path().extension().string();
-                        file << "build $objDir/";
-                        file << nameString;
-                        file << ".obj: buildToObject src/";
-                        file << nameString;
-                        file << extension;
-                        file << "\n";
-                    }
-                }
             }
-            
+
+            //proceed to build all objects using the same syntax as this
+            //build $objDir/Person.o: buildToObject src/Person.cpp
+
+            file << "## build all of the objects and the executable\n";
+            std::string srcDir = startDir+"/src";
+
+            addSubDirStuff(file, srcDir, "src/");
         }
 
         file.close();
@@ -482,27 +523,6 @@ void createNinjaFilex64()
                 file << "   depfile = $out.d\n";
                 file << "   command = $compiler $compilerFlags $inc $in -o $out -MMD -MF $out.d\n";
                 file << "\n";
-
-                //proceed to build all objects using the same syntax as this
-                //build $objDir/Person.o: buildToObject src/Person.cpp
-
-                file << "## build all of the objects and the executable\n";
-                std::string srcDir = startDir+"/src";
-
-                for(fs::directory_entry f : fs::directory_iterator(srcDir))
-                {
-                    if(fs::is_regular_file(f.path()))
-                    {
-                        std::string nameString = f.path().stem().string();
-                        std::string extension = f.path().extension().string();
-                        file << "build $objDir/";
-                        file << nameString;
-                        file << ".o: buildToObject src/";
-                        file << nameString;
-                        file << extension;
-                        file << "\n";
-                    }
-                }
             }
             else
             {
@@ -510,29 +530,14 @@ void createNinjaFilex64()
                 file << "   deps = msvc\n";
                 file << "   command = $compiler $compilerFlags $inc $in /showIncludes /Fo$out\n";
                 file << "\n";
-
-                //proceed to build all objects using the same syntax as this
-                //build $objDir/Person.o: buildToObject src/Person.cpp
-
-                file << "## build all of the objects and the executable\n";
-                std::string srcDir = startDir+"/src";
-
-                for(fs::directory_entry f : fs::directory_iterator(srcDir))
-                {
-                    if(fs::is_regular_file(f.path()))
-                    {
-                        std::string nameString = f.path().stem().string();
-                        std::string extension = f.path().extension().string();
-                        file << "build $objDir/";
-                        file << nameString;
-                        file << ".obj: buildToObject src/";
-                        file << nameString;
-                        file << extension;
-                        file << "\n";
-                    }
-                }
             }
-            
+            //proceed to build all objects using the same syntax as this
+            //build $objDir/Person.o: buildToObject src/Person.cpp
+
+            file << "## build all of the objects and the executable\n";
+            std::string srcDir = startDir+"/src";
+
+            addSubDirStuff(file, srcDir, "src/");
         }
 
         file.close();
@@ -561,27 +566,6 @@ void createNinjaFilex86()
                 file << "   depfile = $out.d\n";
                 file << "   command = $compiler $compilerFlags $inc $in -o $out -MMD -MF $out.d\n";
                 file << "\n";
-
-                //proceed to build all objects using the same syntax as this
-                //build $objDir/Person.o: buildToObject src/Person.cpp
-
-                file << "## build all of the objects and the executable\n";
-                std::string srcDir = startDir+"/src";
-
-                for(fs::directory_entry f : fs::directory_iterator(srcDir))
-                {
-                    if(fs::is_regular_file(f.path()))
-                    {
-                        std::string nameString = f.path().stem().string();
-                        std::string extension = f.path().extension().string();
-                        file << "build $objDir/";
-                        file << nameString;
-                        file << ".o: buildToObject src/";
-                        file << nameString;
-                        file << extension;
-                        file << "\n";
-                    }
-                }
             }
             else
             {
@@ -589,29 +573,14 @@ void createNinjaFilex86()
                 file << "   deps = msvc\n";
                 file << "   command = $compiler $compilerFlags $inc $in /showIncludes /Fo$out\n";
                 file << "\n";
-
-                //proceed to build all objects using the same syntax as this
-                //build $objDir/Person.o: buildToObject src/Person.cpp
-
-                file << "## build all of the objects and the executable\n";
-                std::string srcDir = startDir+"/src";
-
-                for(fs::directory_entry f : fs::directory_iterator(srcDir))
-                {
-                    if(fs::is_regular_file(f.path()))
-                    {
-                        std::string nameString = f.path().stem().string();
-                        std::string extension = f.path().extension().string();
-                        file << "build $objDir/";
-                        file << nameString;
-                        file << ".obj: buildToObject src/";
-                        file << nameString;
-                        file << extension;
-                        file << "\n";
-                    }
-                }
             }
-            
+            //proceed to build all objects using the same syntax as this
+            //build $objDir/Person.o: buildToObject src/Person.cpp
+
+            file << "## build all of the objects and the executable\n";
+            std::string srcDir = startDir+"/src";
+
+            addSubDirStuff(file, srcDir, "src/");
         }
 
         file.close();
@@ -633,27 +602,6 @@ void createNinjaFilex86()
                 file << "   depfile = $out.d\n";
                 file << "   command = $compiler $compilerFlags $inc $in -o $out -MMD -MF $out.d\n";
                 file << "\n";
-
-                //proceed to build all objects using the same syntax as this
-                //build $objDir/Person.o: buildToObject src/Person.cpp
-
-                file << "## build all of the objects and the executable\n";
-                std::string srcDir = startDir+"/src";
-
-                for(fs::directory_entry f : fs::directory_iterator(srcDir))
-                {
-                    if(fs::is_regular_file(f.path()))
-                    {
-                        std::string nameString = f.path().stem().string();
-                        std::string extension = f.path().extension().string();
-                        file << "build $objDir/";
-                        file << nameString;
-                        file << ".o: buildToObject src/";
-                        file << nameString;
-                        file << extension;
-                        file << "\n";
-                    }
-                }
             }
             else
             {
@@ -661,32 +609,172 @@ void createNinjaFilex86()
                 file << "   deps = msvc\n";
                 file << "   command = $compiler $compilerFlags $inc $in /showIncludes /Fo$out\n";
                 file << "\n";
-
-                //proceed to build all objects using the same syntax as this
-                //build $objDir/Person.o: buildToObject src/Person.cpp
-
-                file << "## build all of the objects and the executable\n";
-                std::string srcDir = startDir+"/src";
-
-                for(fs::directory_entry f : fs::directory_iterator(srcDir))
-                {
-                    if(fs::is_regular_file(f.path()))
-                    {
-                        std::string nameString = f.path().stem().string();
-                        std::string extension = f.path().extension().string();
-                        file << "build $objDir/";
-                        file << nameString;
-                        file << ".obj: buildToObject src/";
-                        file << nameString;
-                        file << extension;
-                        file << "\n";
-                    }
-                }
             }
-            
+            //proceed to build all objects using the same syntax as this
+            //build $objDir/Person.o: buildToObject src/Person.cpp
+
+            file << "## build all of the objects and the executable\n";
+            std::string srcDir = startDir+"/src";
+
+            addSubDirStuff(file, srcDir, "src/");
         }
 
         file.close();
+    }
+}
+
+void createShellFile()
+{
+    std::fstream file;
+    std::string k;
+
+    if(!exclude64)
+    {
+        //x64 version DEBUG
+        file = std::fstream(startDir + "build/Debug/buildx64.sh", std::fstream::out | std::fstream::binary);
+        
+        if(file.is_open())
+        {
+            file << "#!/bin/bash\n";
+            file << "ninja -f ./build/Debug/buildx64.ninja -v\n";
+
+            k = compilerName;
+
+            if(compilerType != TYPE_MSVC)
+            {
+                k += " -g ";
+
+                if(extraDebugOptions)
+                {
+                    k += "-fsanitize=address ";
+                }
+                k+= "./bin/Debug/x64/obj/*.obj -o ./bin/Debug/x64/";
+            }
+            else
+            {
+                if(extraDebugOptions)
+                {
+                    k += "/fsanitize=address ";
+                }
+
+                k += " /link /DEBUG ";
+                k+= "./bin/Debug/x64/obj/*.obj /OUT:./bin/Debug/x64/";
+            }
+            
+            file << k;
+            file << projectName;
+        }
+
+        file.close();
+
+        //Note that this is required in linux to create a executable shell file.
+        system("chmod 755 build/Debug/buildx64.sh");
+
+        //x64 version RELEASE
+        file = std::fstream(startDir + "build/Release/buildx64.sh", std::fstream::out | std::fstream::binary);
+        
+        if(file.is_open())
+        {
+            file << "#!/bin/bash\n";
+            file << "ninja -f ./build/Release/buildx64.ninja -v\n";
+
+            k = compilerName;
+
+            if(compilerType != TYPE_MSVC)
+            {
+                k += " -O3 ";
+                k += "./bin/Release/x64/obj/*.obj -o ./bin/Release/x64/";
+            }
+            else
+            {
+                k += " /O2 ";
+
+                k += " /link ";
+                k += "./bin/Release/x64/obj/*.obj /OUT:./bin/Release/x64/";
+            }
+            
+            file << k;
+            file << projectName;
+        }
+
+        file.close();
+        
+        //Note that this is required in linux to create a executable shell file.
+        system("chmod 755 build/Release/buildx64.sh");
+    }
+
+    if(!exclude86)
+    {
+        //x86 version DEBUG
+        file = std::fstream(startDir + "build/Debug/buildx86.sh", std::fstream::out | std::fstream::binary);
+        
+        if(file.is_open())
+        {
+            file << "#!/bin/bash\n";
+            file << "ninja -f ./build/Debug/buildx86.ninja -v\n";
+
+            k = compilerName;
+
+            if(compilerType != TYPE_MSVC)
+            {
+                k += " -m32 -g ";
+
+                if(extraDebugOptions)
+                {
+                    k += "-fsanitize=address ";
+                }
+                k+= "./bin/Debug/x86/obj/*.obj -o ./bin/Debug/x86/";
+            }
+            else
+            {
+                if(extraDebugOptions)
+                {
+                    k += "/fsanitize=address ";
+                }
+
+                k += " /link /DEBUG ";
+                k+= "./bin/Debug/x86/obj/*.obj /OUT:./bin/Debug/x86/";
+            }
+            
+            file << k;
+            file << projectName;
+        }
+
+        file.close();
+        
+        //Note that this is required in linux to create a executable shell file.
+        system("chmod 700 build/Debug/buildx86.sh");
+
+        //x86 version RELEASE
+        file = std::fstream(startDir + "build/Release/buildx86.sh", std::fstream::out | std::fstream::binary);
+        
+        if(file.is_open())
+        {
+            file << "#!/bin/bash\n";
+            file << "ninja -f ./build/Release/buildx86.ninja -v\n";
+
+            k = compilerName;
+
+            if(compilerType != TYPE_MSVC)
+            {
+                k += " -O3 ";
+                k += "./bin/Release/x86/obj/*.obj -o ./bin/Release/x86/";
+            }
+            else
+            {
+                k += " /O2 ";
+                k += " /link ";
+                k += "./bin/Release/x86/obj/*.obj /OUT:./bin/Release/x86/";
+            }
+            
+            file << k;
+            file << projectName;
+        }
+
+        file.close();
+
+        //Note that this is required in linux to create a executable shell file.
+        system("chmod 700 build/Release/buildx86.sh");
     }
 }
 
@@ -878,15 +966,15 @@ void createStaticLibFiles()
     file << "@echo OFF\n";
     if(!exclude64)
     {
-        file << "llvm-ar -rcs exportStaticLib/Debug/x64/"+projectName+".lib bin/Debug/x64/obj/*.o\n";
-        file << "llvm-ar -rcs exportStaticLib/Release/x64/"+projectName+".lib bin/Release/x64/obj/*.o\n";
+        file << "llvm-ar -rcs exportStaticLib/Debug/x64/"+projectName+".lib bin/Debug/x64/obj/*.obj\n";
+        file << "llvm-ar -rcs exportStaticLib/Release/x64/"+projectName+".lib bin/Release/x64/obj/*.obj\n";
         file << "\n";
     }
 
     if(!exclude64)
     {
-        file << "llvm-ar -rcs exportStaticLib/Debug/x86/"+projectName+".lib bin/Debug/x86/obj/*.o\n";
-        file << "llvm-ar -rcs exportStaticLib/Release/x86/"+projectName+".lib bin/Release/x86/obj/*.o\n";
+        file << "llvm-ar -rcs exportStaticLib/Debug/x86/"+projectName+".lib bin/Debug/x86/obj/*.obj\n";
+        file << "llvm-ar -rcs exportStaticLib/Release/x86/"+projectName+".lib bin/Release/x86/obj/*.obj\n";
     }
     file.close();
 
@@ -895,14 +983,14 @@ void createStaticLibFiles()
         //build Debug x86
         file = std::fstream(startDir + "exportStaticLib/Debug/exportLibx86.bat", std::fstream::out | std::fstream::binary);
         file << "@echo OFF\n";
-        file << "llvm-ar -rcs exportStaticLib/Debug/x86/"+projectName+".lib bin/Debug/x86/obj/*.o\n";
+        file << "llvm-ar -rcs exportStaticLib/Debug/x86/"+projectName+".lib bin/Debug/x86/obj/*.obj\n";
 
         file.close();
 
         //build Release x86
         file = std::fstream(startDir + "exportStaticLib/Release/exportLibx86.bat", std::fstream::out | std::fstream::binary);
         file << "@echo OFF\n";
-        file << "llvm-ar -rcs exportStaticLib/Release/x86/"+projectName+".lib bin/Release/x86/obj/*.o\n";
+        file << "llvm-ar -rcs exportStaticLib/Release/x86/"+projectName+".lib bin/Release/x86/obj/*.obj\n";
 
         file.close();
     }
@@ -912,14 +1000,14 @@ void createStaticLibFiles()
         //build Debug x64
         file = std::fstream(startDir + "exportStaticLib/Debug/exportLibx64.bat", std::fstream::out | std::fstream::binary);
         file << "@echo OFF\n";
-        file << "llvm-ar -rcs exportStaticLib/Debug/x64/"+projectName+".lib bin/Debug/x64/obj/*.o\n";
+        file << "llvm-ar -rcs exportStaticLib/Debug/x64/"+projectName+".lib bin/Debug/x64/obj/*.obj\n";
 
         file.close();
 
         //build Release x64
         file = std::fstream(startDir + "exportStaticLib/Release/exportLibx64.bat", std::fstream::out | std::fstream::binary);
         file << "@echo OFF\n";
-        file << "llvm-ar -rcs exportStaticLib/Release/x64/"+projectName+".lib bin/Release/x64/obj/*.o\n";
+        file << "llvm-ar -rcs exportStaticLib/Release/x64/"+projectName+".lib bin/Release/x64/obj/*.obj\n";
 
         file.close();
     }
@@ -942,7 +1030,7 @@ void createDynamicLibFiles()
     {
         k += "%WLIBPATH32% %WLIBVALUES% ";
     }
-    k += "-shared bin/Debug/x86/obj/*.o ";
+    k += "-shared bin/Debug/x86/obj/*.obj ";
     k += "-o exportDynamicLib/Debug/x86" + projectName + ".dll";
     file << k;
     file.close();
@@ -958,7 +1046,7 @@ void createDynamicLibFiles()
     {
         k += "%WLIBPATH64% %WLIBVALUES% ";
     }
-    k += "-shared bin/Debug/x64/obj/*.o ";
+    k += "-shared bin/Debug/x64/obj/*.obj ";
     k += "-o exportDynamicLib/Debug/x64" + projectName + ".dll";
     file << k;
     file.close();
@@ -970,7 +1058,7 @@ void createDynamicLibFiles()
     {
         k += "%WLIBPATH32% %WLIBVALUES% ";
     }
-    k += "-shared bin/Release/x86/obj/*.o ";
+    k += "-shared bin/Release/x86/obj/*.obj ";
     k += "-o exportDynamicLib/Release/x86" + projectName + ".dll";
     file << k;
     file.close();
@@ -982,7 +1070,7 @@ void createDynamicLibFiles()
     {
         k += "%WLIBPATH64% %WLIBVALUES% ";
     }
-    k += "-shared bin/Release/x64/obj/*.o ";
+    k += "-shared bin/Release/x64/obj/*.obj ";
     k += "-o exportDynamicLib/Release/x64" + projectName + ".dll";
     file << k;
     file.close();
@@ -1032,7 +1120,11 @@ void addVSCodeOptions()
         file << "\t\t\t\t\"UNICODE\",\n";
         file << "\t\t\t\t\"_UNICODE\"\n";
         file << "\t\t\t],\n";
-        file << "\t\t\t\"windowsSdkVersion\": \"10.0.19041.0\",\n";
+
+        #ifndef LINUX
+            file << "\t\t\t\"windowsSdkVersion\": \"10.0.19041.0\",\n";
+        #endif
+
         file << "\t\t\t\"cStandard\": \"c11\",\n";
 
         if(compilerType==TYPE_MSVC)
@@ -1059,53 +1151,83 @@ void addVSCodeOptions()
         file2 << "\t\"version\": \"2.0.0\",\n";
         file2 << "\t\"tasks\": [\n";
 
-        //debug x64 build
-        file2 << "\t\t{\n";
-        file2 << "\t\t\t\"label\": \"Build Debug x64 with Clang\",\n";
-        file2 << "\t\t\t\"type\": \"shell\",\n";
-        file2 << "\t\t\t\"command\": \"${workspaceFolder}/build/Debug/buildx64.bat\",\n";
-        file2 << "\t\t\t\"group\": {\n";
-        file2 << "\t\t\t\t\"kind\": \"build\",\n";
-        file2 << "\t\t\t\t\"isDefault\": true\n";
-        file2 << "\t\t\t},\n";
-        file2 << "\t\t\t\"problemMatcher\": []\n";
-        file2 << "\t\t},\n";
+        if(!exclude64)
+        {
+            //debug x64 build
+            file2 << "\t\t{\n";
+            file2 << "\t\t\t\"label\": \"Build Debug x64 with Clang\",\n";
+            file2 << "\t\t\t\"type\": \"shell\",\n";
 
-        //debug x86 build
-        file2 << "\t\t{\n";
-        file2 << "\t\t\t\"label\": \"Build Debug x86 with Clang\",\n";
-        file2 << "\t\t\t\"type\": \"shell\",\n";
-        file2 << "\t\t\t\"command\": \"${workspaceFolder}/build/Debug/buildx86.bat\",\n";
-        file2 << "\t\t\t\"group\": {\n";
-        file2 << "\t\t\t\t\"kind\": \"build\",\n";
-        file2 << "\t\t\t\t\"isDefault\": true\n";
-        file2 << "\t\t\t},\n";
-        file2 << "\t\t\t\"problemMatcher\": []\n";
-        file2 << "\t\t},\n";
+            if(!generateBatch)
+                file2 << "\t\t\t\"command\": \"${workspaceFolder}/build/Debug/buildx64.sh\",\n";
+            else
+                file2 << "\t\t\t\"command\": \"${workspaceFolder}/build/Debug/buildx64.bat\",\n";
+            
+            file2 << "\t\t\t\"group\": {\n";
+            file2 << "\t\t\t\t\"kind\": \"build\",\n";
+            file2 << "\t\t\t\t\"isDefault\": true\n";
+            file2 << "\t\t\t},\n";
+            file2 << "\t\t\t\"problemMatcher\": []\n";
+            file2 << "\t\t},\n";
 
-        //release x64 build
-        file2 << "\t\t{\n";
-        file2 << "\t\t\t\"label\": \"Build Release x64 with Clang\",\n";
-        file2 << "\t\t\t\"type\": \"shell\",\n";
-        file2 << "\t\t\t\"command\": \"${workspaceFolder}/build/Release/buildx64.bat\",\n";
-        file2 << "\t\t\t\"group\": {\n";
-        file2 << "\t\t\t\t\"kind\": \"build\",\n";
-        file2 << "\t\t\t\t\"isDefault\": true\n";
-        file2 << "\t\t\t},\n";
-        file2 << "\t\t\t\"problemMatcher\": []\n";
-        file2 << "\t\t},\n";
+            //release x64 build
+            file2 << "\t\t{\n";
+            file2 << "\t\t\t\"label\": \"Build Release x64 with Clang\",\n";
+            file2 << "\t\t\t\"type\": \"shell\",\n";
 
-        //release x86 build
-        file2 << "\t\t{\n";
-        file2 << "\t\t\t\"label\": \"Build Release x86 with Clang\",\n";
-        file2 << "\t\t\t\"type\": \"shell\",\n";
-        file2 << "\t\t\t\"command\": \"${workspaceFolder}/build/Release/buildx86.bat\",\n";
-        file2 << "\t\t\t\"group\": {\n";
-        file2 << "\t\t\t\t\"kind\": \"build\",\n";
-        file2 << "\t\t\t\t\"isDefault\": true\n";
-        file2 << "\t\t\t},\n";
-        file2 << "\t\t\t\"problemMatcher\": []\n";
-        file2 << "\t\t}\n";
+            if(!generateBatch)
+                file2 << "\t\t\t\"command\": \"${workspaceFolder}/build/Release/buildx64.sh\",\n";
+            else
+                file2 << "\t\t\t\"command\": \"${workspaceFolder}/build/Release/buildx64.bat\",\n";
+
+            file2 << "\t\t\t\"group\": {\n";
+            file2 << "\t\t\t\t\"kind\": \"build\",\n";
+            file2 << "\t\t\t\t\"isDefault\": true\n";
+            file2 << "\t\t\t},\n";
+            file2 << "\t\t\t\"problemMatcher\": []\n";
+
+            if(exclude86)
+                file2 << "\t\t}\n";
+            else
+                file2 << "\t\t},\n";
+        }
+
+        if(!exclude86)
+        {
+            //debug x86 build
+            file2 << "\t\t{\n";
+            file2 << "\t\t\t\"label\": \"Build Debug x86 with Clang\",\n";
+            file2 << "\t\t\t\"type\": \"shell\",\n";
+            
+            if(!generateBatch)
+                file2 << "\t\t\t\"command\": \"${workspaceFolder}/build/Debug/buildx86.sh\",\n";
+            else
+                file2 << "\t\t\t\"command\": \"${workspaceFolder}/build/Debug/buildx86.bat\",\n";
+
+            file2 << "\t\t\t\"group\": {\n";
+            file2 << "\t\t\t\t\"kind\": \"build\",\n";
+            file2 << "\t\t\t\t\"isDefault\": true\n";
+            file2 << "\t\t\t},\n";
+            file2 << "\t\t\t\"problemMatcher\": []\n";
+            file2 << "\t\t},\n";
+
+            //release x86 build
+            file2 << "\t\t{\n";
+            file2 << "\t\t\t\"label\": \"Build Release x86 with Clang\",\n";
+            file2 << "\t\t\t\"type\": \"shell\",\n";
+
+            if(!generateBatch)
+                file2 << "\t\t\t\"command\": \"${workspaceFolder}/build/Release/buildx86.sh\",\n";
+            else
+                file2 << "\t\t\t\"command\": \"${workspaceFolder}/build/Release/buildx86.bat\",\n";
+
+            file2 << "\t\t\t\"group\": {\n";
+            file2 << "\t\t\t\t\"kind\": \"build\",\n";
+            file2 << "\t\t\t\t\"isDefault\": true\n";
+            file2 << "\t\t\t},\n";
+            file2 << "\t\t\t\"problemMatcher\": []\n";
+            file2 << "\t\t}\n";
+        }
 
         file2 << "\t]\n";
 
@@ -1123,57 +1245,111 @@ void addVSCodeOptions()
         file3 << "\t\"version\": \"0.2.0\",\n";
         file3 << "\t\"configurations\": [\n";
 
-        //debug x64 run
-        file3 << "\t\t{\n";
-        file3 << "\t\t\t\"name\": \"(MVSC) Debug Launch x64\",\n";
-        file3 << "\t\t\t\"type\": \"cppvsdbg\",\n";
-        file3 << "\t\t\t\"request\": \"launch\",\n";
-        file3 << "\t\t\t\"program\": \"${workspaceFolder}/bin/Debug/x64/" << projectName << ".exe\",\n";
-        file3 << "\t\t\t\"args\": [],\n";
-        file3 << "\t\t\t\"stopAtEntry\": false,\n";
-        file3 << "\t\t\t\"cwd\": \"${workspaceFolder}\",\n";
-        file3 << "\t\t\t\"environment\": [],\n";
-        file3 << "\t\t\t\"console\": \"externalTerminal\"\n";
-        file3 << "\t\t},\n";
+        if(!exclude64)
+        {
+            //debug x64 run
+            file3 << "\t\t{\n";
+            file3 << "\t\t\t\"name\": \"(MVSC) Debug Launch x64\",\n";
+            file3 << "\t\t\t\"type\": \"cppvsdbg\",\n";
+            file3 << "\t\t\t\"request\": \"launch\",\n";
 
-        //release x64 run
-        file3 << "\t\t{\n";
-        file3 << "\t\t\t\"name\": \"(MVSC) Release Launch x64\",\n";
-        file3 << "\t\t\t\"type\": \"cppvsdbg\",\n";
-        file3 << "\t\t\t\"request\": \"launch\",\n";
-        file3 << "\t\t\t\"program\": \"${workspaceFolder}/bin/Release/x64/" << projectName << ".exe\",\n";
-        file3 << "\t\t\t\"args\": [],\n";
-        file3 << "\t\t\t\"stopAtEntry\": false,\n";
-        file3 << "\t\t\t\"cwd\": \"${workspaceFolder}\",\n";
-        file3 << "\t\t\t\"environment\": [],\n";
-        file3 << "\t\t\t\"console\": \"externalTerminal\"\n";
-        file3 << "\t\t},\n";
+            if(!generateBatch)
+            {
+                file3 << "\t\t\t\"program\": \"${workspaceFolder}/bin/Debug/x64/" << projectName << "\",\n";
+                file3 << "\t\t\t\"externalConsole\": \"true,\"\n";
+                file3 << "\t\t\t\"MIMode\": \"gdb,\"\n";
+            }
+            else
+            {
+                file3 << "\t\t\t\"program\": \"${workspaceFolder}/bin/Debug/x64/" << projectName << ".exe\",\n";
+                file3 << "\t\t\t\"console\": \"externalTerminal,\"\n";
+            }
 
-        //debug x86 run
-        file3 << "\t\t{\n";
-        file3 << "\t\t\t\"name\": \"(MVSC) Debug Launch x86\",\n";
-        file3 << "\t\t\t\"type\": \"cppvsdbg\",\n";
-        file3 << "\t\t\t\"request\": \"launch\",\n";
-        file3 << "\t\t\t\"program\": \"${workspaceFolder}/bin/Debug/x86/" << projectName << ".exe\",\n";
-        file3 << "\t\t\t\"args\": [],\n";
-        file3 << "\t\t\t\"stopAtEntry\": false,\n";
-        file3 << "\t\t\t\"cwd\": \"${workspaceFolder}\",\n";
-        file3 << "\t\t\t\"environment\": [],\n";
-        file3 << "\t\t\t\"console\": \"externalTerminal\"\n";
-        file3 << "\t\t},\n";
+            file3 << "\t\t\t\"args\": [],\n";
+            file3 << "\t\t\t\"stopAtEntry\": false,\n";
+            file3 << "\t\t\t\"cwd\": \"${workspaceFolder}\",\n";
+            file3 << "\t\t\t\"environment\": []\n";
+            file3 << "\t\t},\n";
 
-        //release x86 run
-        file3 << "\t\t{\n";
-        file3 << "\t\t\t\"name\": \"(MVSC) Release Launch x86\",\n";
-        file3 << "\t\t\t\"type\": \"cppvsdbg\",\n";
-        file3 << "\t\t\t\"request\": \"launch\",\n";
-        file3 << "\t\t\t\"program\": \"${workspaceFolder}/bin/Debug/x86/" << projectName << ".exe\",\n";
-        file3 << "\t\t\t\"args\": [],\n";
-        file3 << "\t\t\t\"stopAtEntry\": false,\n";
-        file3 << "\t\t\t\"cwd\": \"${workspaceFolder}\",\n";
-        file3 << "\t\t\t\"environment\": [],\n";
-        file3 << "\t\t\t\"console\": \"externalTerminal\"\n";
-        file3 << "\t\t}\n";
+            //release x64 run
+            file3 << "\t\t{\n";
+            file3 << "\t\t\t\"name\": \"(MVSC) Release Launch x64\",\n";
+            file3 << "\t\t\t\"type\": \"cppvsdbg\",\n";
+            file3 << "\t\t\t\"request\": \"launch\",\n";
+
+            if(!generateBatch)
+            {
+                file3 << "\t\t\t\"program\": \"${workspaceFolder}/bin/Release/x64/" << projectName << "\",\n";
+                file3 << "\t\t\t\"externalConsole\": \"true,\"\n";
+                file3 << "\t\t\t\"MIMode\": \"gdb,\"\n";
+            }
+            else
+            {
+                file3 << "\t\t\t\"program\": \"${workspaceFolder}/bin/Release/x64/" << projectName << ".exe\",\n";
+                file3 << "\t\t\t\"console\": \"externalTerminal,\"\n";
+            }
+
+            file3 << "\t\t\t\"args\": [],\n";
+            file3 << "\t\t\t\"stopAtEntry\": false,\n";
+            file3 << "\t\t\t\"cwd\": \"${workspaceFolder}\",\n";
+            file3 << "\t\t\t\"environment\": []\n";
+
+            if(exclude86)
+                file3 << "\t\t}\n";
+            else
+                file3 << "\t\t},\n";
+        }
+
+        if(!exclude86)
+        {
+            //debug x86 run
+            file3 << "\t\t{\n";
+            file3 << "\t\t\t\"name\": \"(MVSC) Debug Launch x86\",\n";
+            file3 << "\t\t\t\"type\": \"cppvsdbg\",\n";
+            file3 << "\t\t\t\"request\": \"launch\",\n";
+
+            if(!generateBatch)
+            {
+                file3 << "\t\t\t\"program\": \"${workspaceFolder}/bin/Debug/x86/" << projectName << "\",\n";
+                file3 << "\t\t\t\"externalConsole\": \"true,\"\n";
+                file3 << "\t\t\t\"MIMode\": \"gdb,\"\n";
+            }
+            else
+            {
+                file3 << "\t\t\t\"program\": \"${workspaceFolder}/bin/Debug/x86/" << projectName << ".exe\",\n";
+                file3 << "\t\t\t\"console\": \"externalTerminal,\"\n";
+            }
+
+            file3 << "\t\t\t\"args\": [],\n";
+            file3 << "\t\t\t\"stopAtEntry\": false,\n";
+            file3 << "\t\t\t\"cwd\": \"${workspaceFolder}\",\n";
+            file3 << "\t\t\t\"environment\": []\n";
+            file3 << "\t\t},\n";
+
+            //release x86 run
+            file3 << "\t\t{\n";
+            file3 << "\t\t\t\"name\": \"(MVSC) Release Launch x86\",\n";
+            file3 << "\t\t\t\"type\": \"cppvsdbg\",\n";
+            file3 << "\t\t\t\"request\": \"launch\",\n";
+
+            if(!generateBatch)
+            {
+                file3 << "\t\t\t\"program\": \"${workspaceFolder}/bin/Release/x86/" << projectName << "\",\n";
+                file3 << "\t\t\t\"externalConsole\": \"true,\"\n";
+                file3 << "\t\t\t\"MIMode\": \"gdb,\"\n";
+            }
+            else
+            {
+                file3 << "\t\t\t\"program\": \"${workspaceFolder}/bin/Release/x86/" << projectName << ".exe\",\n";
+                file3 << "\t\t\t\"console\": \"externalTerminal,\"\n";
+            }
+
+            file3 << "\t\t\t\"args\": [],\n";
+            file3 << "\t\t\t\"stopAtEntry\": false,\n";
+            file3 << "\t\t\t\"cwd\": \"${workspaceFolder}\",\n";
+            file3 << "\t\t\t\"environment\": []\n";
+            file3 << "\t\t}\n";
+        }
 
         file3 << "\t]\n";
 
@@ -1199,49 +1375,56 @@ int main(int argc, const char* argv[])
             }
             else if(std::strcmp("-v", argv[i]) == 0)
             {
-                std::cout << "Version 1.9" << std::endl;
+                std::cout << "Version 2.0" << std::endl;
                 return 0;
             }
             else if(std::strcmp("-i", argv[i]) == 0)
             {
-                std::string windowKitDir = "";
-                std::cout << "Enter in the directory of the windows kit: " << std::endl;
-                std::getline(std::cin, windowKitDir);
-                if(windowKitDir.back() != '\\' || windowKitDir.back() != '/')
-                {
-                    windowKitDir += '\\';
-                }
 
-                //-L "C:\Program Files (x86)\Windows Kits\10\lib\10.0.19041.0\ucrt\x86" -L "C:\Program Files (x86)\Windows Kits\10\lib\10.0.19041.0\um\x86"
-                //-L "C:\Program Files (x86)\Windows Kits\10\lib\10.0.19041.0\ucrt\x64" -L "C:\Program Files (x86)\Windows Kits\10\lib\10.0.19041.0\um\x64"
-                //-l kernel32.lib -l user32.lib -l gdi32.lib -l winspool.lib -l comdlg32.lib -l advapi32.lib -l shell32.lib -l ole32.lib -l oleaut32.lib -l uuid.lib -l odbc32.lib -l odbccp32.lib
+                #ifdef LINUX
+                    std::cout << "This option (-i) is not avaliable on Linux as it relies on the Window SDK" << std::endl;
+                #else
 
-                std::string command1 = "SETX WLIBPATH32 ";
-                command1 += "\"-L \\\"";
-                command1 += windowKitDir;
-                command1 += "ucrt\\x86\\\" ";
+                    std::string windowKitDir = "";
+                    std::cout << "Enter in the directory of the windows kit: " << std::endl;
+                    std::getline(std::cin, windowKitDir);
+                    if(windowKitDir.back() != '\\' || windowKitDir.back() != '/')
+                    {
+                        windowKitDir += '\\';
+                    }
 
-                command1 += "-L \\\"";
-                command1 += windowKitDir;
-                command1 += "um\\x86\\\"\"";
+                    //-L "C:\Program Files (x86)\Windows Kits\10\lib\10.0.19041.0\ucrt\x86" -L "C:\Program Files (x86)\Windows Kits\10\lib\10.0.19041.0\um\x86"
+                    //-L "C:\Program Files (x86)\Windows Kits\10\lib\10.0.19041.0\ucrt\x64" -L "C:\Program Files (x86)\Windows Kits\10\lib\10.0.19041.0\um\x64"
+                    //-l kernel32.lib -l user32.lib -l gdi32.lib -l winspool.lib -l comdlg32.lib -l advapi32.lib -l shell32.lib -l ole32.lib -l oleaut32.lib -l uuid.lib -l odbc32.lib -l odbccp32.lib
 
-                std::string command2 = "SETX WLIBPATH64 ";
-                command2 += "\"-L \\\"";
-                command2 += windowKitDir;
-                command2 += "ucrt\\x64\\\" ";
+                    std::string command1 = "SETX WLIBPATH32 ";
+                    command1 += "\"-L \\\"";
+                    command1 += windowKitDir;
+                    command1 += "ucrt\\x86\\\" ";
 
-                command2 += "-L \\\"";
-                command2 += windowKitDir;
-                command2 += "um\\x64\\\"\"";
+                    command1 += "-L \\\"";
+                    command1 += windowKitDir;
+                    command1 += "um\\x86\\\"\"";
 
-                std::string command3 = "SETX WLIBVALUES ";
-                command3 += "\"-l kernel32.lib -l user32.lib -l gdi32.lib -l winspool.lib -l comdlg32.lib -l advapi32.lib -l shell32.lib -l ole32.lib -l oleaut32.lib -l uuid.lib -l odbc32.lib -l odbccp32.lib\"";
+                    std::string command2 = "SETX WLIBPATH64 ";
+                    command2 += "\"-L \\\"";
+                    command2 += windowKitDir;
+                    command2 += "ucrt\\x64\\\" ";
 
-                std::cout << "Setting environment variables WLIBPATH32, WLIBPATH64, WLIBVALUES" << std::endl;
+                    command2 += "-L \\\"";
+                    command2 += windowKitDir;
+                    command2 += "um\\x64\\\"\"";
 
-                system(command1.c_str());
-                system(command2.c_str());
-                system(command3.c_str());
+                    std::string command3 = "SETX WLIBVALUES ";
+                    command3 += "\"-l kernel32.lib -l user32.lib -l gdi32.lib -l winspool.lib -l comdlg32.lib -l advapi32.lib -l shell32.lib -l ole32.lib -l oleaut32.lib -l uuid.lib -l odbc32.lib -l odbccp32.lib\"";
+
+                    std::cout << "Setting environment variables WLIBPATH32, WLIBPATH64, WLIBVALUES" << std::endl;
+
+                    system(command1.c_str());
+                    system(command2.c_str());
+                    system(command3.c_str());
+
+                #endif
                 
                 return 0;
             }
@@ -1279,7 +1462,11 @@ int main(int argc, const char* argv[])
             }
             else if(std::strcmp("-Include_Windows", argv[i]) == 0)
             {
-                includeWindowsStuff = true;
+                #ifdef LINUX
+                    std::cout << "This option is not avaliable on Linux as it relies on the Window SDK" << std::endl;
+                #else
+                    includeWindowsStuff = true;
+                #endif
             }
             else if(std::strcmp("-Static_Library", argv[i]) == 0)
             {
@@ -1316,7 +1503,7 @@ int main(int argc, const char* argv[])
                     {
                         int indexOfSeparator = max(compilerName.find_last_of('/'), compilerName.find_last_of('\\'));
                         std::string tempName = compilerName.substr(indexOfSeparator);
-                        if(tempName=="clang")
+                        if(tempName=="clang" || tempName=="clang++")
                         {
                             compilerType = TYPE_CLANG;
                         }
@@ -1324,7 +1511,7 @@ int main(int argc, const char* argv[])
                         {
                             compilerType = TYPE_MSVC;
                         }
-                        else if(tempName=="gcc")
+                        else if(tempName=="gcc" || tempName=="g++")
                         {
                             compilerType = TYPE_GCC;
                         }
@@ -1347,15 +1534,15 @@ int main(int argc, const char* argv[])
                     std::string tempName = argv[i+1];
                     i++;
 
-                    if(tempName=="CLANG")
+                    if(tempName=="clang" || tempName=="clang++")
                     {
                         compilerType = TYPE_CLANG;
                     }
-                    else if(tempName=="MSVC")
+                    else if(tempName=="msvc")
                     {
                         compilerType = TYPE_MSVC;
                     }
-                    else if(tempName=="GCC")
+                    else if(tempName=="gcc" || tempName=="g++")
                     {
                         compilerType = TYPE_GCC;
                     }
@@ -1416,8 +1603,16 @@ int main(int argc, const char* argv[])
             createNinjaVarFilex86();
             createNinjaFilex86();
 
-            std::cout << "Creating .bat files for simple building" << std::endl;
-            createBatchFile();
+            if(generateBatch)
+            {
+                std::cout << "Creating batch (.bat) files for simple building" << std::endl;
+                createBatchFile();
+            }
+            else
+            {
+                std::cout << "Creating shell (.sh) files for simple building" << std::endl;
+                createShellFile();
+            }
 
             if(isStaticLibrary==true)
             {
@@ -1441,7 +1636,14 @@ int main(int argc, const char* argv[])
         {
             //only have to recreate these. These files contain
             //the files that need to be built.
-            startDir += "./";
+            if(startDir=="")
+            {
+                startDir = "./";
+            }
+            else
+            {
+                startDir += "/";
+            }
             std::cout << "Updating .ninja files" << std::endl;
             
             checkShouldCreate();
