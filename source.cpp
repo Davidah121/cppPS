@@ -23,14 +23,16 @@ bool isStaticLibrary = false;
 bool isDynamicLibrary = false;
 bool extraDebugOptions = false;
 bool vscodeOptions = false;
+bool isGuiApplication = false;
 
 bool exclude86 = false;
 bool exclude64 = false;
 
-bool generateBatch = true;
 
 #ifdef LINUX
-    generateBatch = false;
+    bool generateBatch = false;
+#else
+    bool generateBatch = true;
 #endif
 
 char compilerType = TYPE_CLANG;
@@ -60,6 +62,7 @@ void helpFunc()
     std::cout << "----------------------------" << std::endl;
     std::cout << "Additional Options:" << std::endl;
     std::cout << "-Include_Windows   Includes the windows headers and libraries for both x86 and x64." << std::endl;
+    std::cout << "-Exclude_Console   Creates an application that does not start with a console window. Useful in a Windows environment." << std::endl;
     std::cout << "-Static_Library    Sets the project up for building a static library. Other builds are still included." << std::endl;
     std::cout << "-Dynamic_Library   Sets the project up for building a dynamic library. Other builds are still included." << std::endl;
     std::cout << "-Ext_Debug_Flags   Adds additional debug options to the debug build of the project." << std::endl;
@@ -98,6 +101,7 @@ bool createDirectories()
         createDir("src");
         createDir("include");
         createDir("build");
+        createDir("res");
 
         createDir("bin/Debug");
         createDir("bin/Release");
@@ -247,6 +251,35 @@ void getCompilerType()
         std::cout << "ERROR finding previous build file. CompilerType=OTHER" << std::endl;
         compilerType = TYPE_UNKNOWN;
     }
+}
+
+void createProjectResFiles()
+{
+    //assumes windows I guess
+    std::fstream file(startDir + "/res/project.rc", std::fstream::out | std::fstream::binary);
+    if(file.is_open())
+    {
+        file << "1 VERSIONINFO\n";
+        file << "\tFILEVERSION 0,0,0,0\n";
+        file << "\tPRODUCTVERSION 0,0,0,0\n";
+        file << "{\n";
+        file << "\tBLOCK \"StringFileInfo\"\n";
+        file << "\t{\n";
+        file << "\t\tBLOCK \"040904e4\"\n";
+        file << "\t\t{\n";
+        file << "\t\t\tVALUE \"FileVersion\", \"0.0.0.0\"\n";
+        file << "\t\t\tVALUE \"ProductVersion\", \"0.0.0.0\"\n";
+        file << "\t\t\tVALUE \"ProductName\", \"output\"\n";
+        file << "\t\t}\n";
+        file << "\t}\n";
+        file << "\tBLOCK \"VarFileInfo\"\n";
+        file << "\t{\n";
+        file << "\t\tVALUE \"Translation\", 0x409, 1252\n";
+        file << "\t}\n";
+        file << "}";
+    }
+    file.close();
+
 }
 
 void createNinjaVarFilex64()
@@ -623,6 +656,148 @@ void createNinjaFilex86()
     }
 }
 
+void writeCompileShell(std::fstream& file, bool x64, bool debug)
+{
+    if(file.is_open())
+    {
+        file << "#!/bin/bash\n";
+        
+        if(debug)
+        {
+            if(x64)
+                file << "ninja -f ./build/Debug/buildx64.ninja -v\n";
+            else
+                file << "ninja -f ./build/Debug/buildx86.ninja -v\n";
+        }
+        else
+        {
+            if(x64)
+                file << "ninja -f ./build/Release/buildx64.ninja -v\n";
+            else
+                file << "ninja -f ./build/Release/buildx86.ninja -v\n";
+        }
+
+        if(compilerType != TYPE_MSVC)
+        {
+            file << "debugOptions=\"";
+
+            if(debug)
+            {
+                file << "-g";
+                if(extraDebugOptions)
+                {
+                    file << " -fsantize=address";
+                }
+            }
+            file << "\"\n";
+
+            file << "linkOptions=\"";
+            if(includeWindowsStuff)
+            {
+                if(x64)
+                    file << "%WLIBPATH64% %WLIBVALUES%";
+                else
+                    file << "%WLIBPATH86% %WLIBVALUES%";
+            }
+            file << "\"\n";
+
+            file << "extraOptions=\"";
+            std::string spaceBuffer = "";
+            if(!debug)
+            {
+                file << "-O3";
+                spaceBuffer = " ";
+            }
+            if(!x64)
+            {
+                file << spaceBuffer;
+                file << "-m32";
+                spaceBuffer = " ";
+            }
+            file << "\"\n";
+
+            if(debug)
+            {
+                if(x64)
+                    file << "projectCommand=\"./bin/Debug/x64/obj/*.obj -o ./bin/Debug/x64/";
+                else
+                    file << "projectCommand=\"./bin/Debug/x86/obj/*.obj -o ./bin/Debug/x86/";
+            }
+            else
+            {
+                if(x64)
+                    file << "projectCommand=\"./bin/Release/x64/obj/*.obj -o ./bin/Release/x64/";
+                else
+                    file << "projectCommand=\"./bin/Release/x86/obj/*.obj -o ./bin/Release/x86/";
+            }
+
+            file << projectName;
+            file << "\"\n";
+        }
+        else
+        {
+            file << "debugOptions=\"/DEBUG";
+
+            if(extraDebugOptions)
+            {
+                file << " /fsantize=address";
+            }
+            file << "\"\n";
+
+            file << "linkOptions=\"";
+            if(includeWindowsStuff)
+            {
+                if(x64)
+                    file << "%WLIBPATH64% %WLIBVALUES%";
+                else
+                    file << "%WLIBPATH86% %WLIBVALUES%";
+            }
+            file << "\"\n";
+
+            file << "extraOptions=\"";
+            std::string spaceBuffer = "";
+            if(!debug)
+            {
+                file << "/O2";
+                spaceBuffer = " ";
+            }
+            if(!x64)
+            {
+                file << spaceBuffer;
+                file << "/machine:x86";
+                spaceBuffer = " ";
+            }
+            if(isGuiApplication)
+            {
+                file << spaceBuffer;
+                file << "/subsystem:windows /entrypoint:mainCRTStartup";
+            }
+            file << "\"\n";
+
+            if(debug)
+            {
+                if(x64)
+                    file << "projectCommand=\"/LINK ./bin/Debug/x64/obj/*.obj /OUT:./bin/Debug/x64/";
+                else
+                    file << "projectCommand=\"/LINK ./bin/Debug/x86/obj/*.obj /OUT:./bin/Debug/x86/";
+            }
+            else
+            {
+                if(x64)
+                    file << "projectCommand=\"/LINK ./bin/Release/x64/obj/*.obj /OUT:./bin/Release/x64/";
+                else
+                    file << "projectCommand=\"/LINK ./bin/Release/x86/obj/*.obj /OUT:./bin/Release/x86/";
+            }
+
+            file << projectName;
+            file << "\"\n";
+        }
+        
+        file << compilerName;
+        file << " $debugOptions $linkOptions $extraOptions $projectCommand";
+    }
+}
+
 void createShellFile()
 {
     std::fstream file;
@@ -632,39 +807,7 @@ void createShellFile()
     {
         //x64 version DEBUG
         file = std::fstream(startDir + "build/Debug/buildx64.sh", std::fstream::out | std::fstream::binary);
-        
-        if(file.is_open())
-        {
-            file << "#!/bin/bash\n";
-            file << "ninja -f ./build/Debug/buildx64.ninja -v\n";
-
-            k = compilerName;
-
-            if(compilerType != TYPE_MSVC)
-            {
-                k += " -g ";
-
-                if(extraDebugOptions)
-                {
-                    k += "-fsanitize=address ";
-                }
-                k+= "./bin/Debug/x64/obj/*.obj -o ./bin/Debug/x64/";
-            }
-            else
-            {
-                if(extraDebugOptions)
-                {
-                    k += "/fsanitize=address ";
-                }
-
-                k += " /link /DEBUG ";
-                k+= "./bin/Debug/x64/obj/*.obj /OUT:./bin/Debug/x64/";
-            }
-            
-            file << k;
-            file << projectName;
-        }
-
+        writeCompileShell(file, true, true);
         file.close();
 
         //Note that this is required in linux to create a executable shell file.
@@ -672,31 +815,7 @@ void createShellFile()
 
         //x64 version RELEASE
         file = std::fstream(startDir + "build/Release/buildx64.sh", std::fstream::out | std::fstream::binary);
-        
-        if(file.is_open())
-        {
-            file << "#!/bin/bash\n";
-            file << "ninja -f ./build/Release/buildx64.ninja -v\n";
-
-            k = compilerName;
-
-            if(compilerType != TYPE_MSVC)
-            {
-                k += " -O3 ";
-                k += "./bin/Release/x64/obj/*.obj -o ./bin/Release/x64/";
-            }
-            else
-            {
-                k += " /O2 ";
-
-                k += " /link ";
-                k += "./bin/Release/x64/obj/*.obj /OUT:./bin/Release/x64/";
-            }
-            
-            file << k;
-            file << projectName;
-        }
-
+        writeCompileShell(file, true, false);
         file.close();
         
         //Note that this is required in linux to create a executable shell file.
@@ -707,39 +826,7 @@ void createShellFile()
     {
         //x86 version DEBUG
         file = std::fstream(startDir + "build/Debug/buildx86.sh", std::fstream::out | std::fstream::binary);
-        
-        if(file.is_open())
-        {
-            file << "#!/bin/bash\n";
-            file << "ninja -f ./build/Debug/buildx86.ninja -v\n";
-
-            k = compilerName;
-
-            if(compilerType != TYPE_MSVC)
-            {
-                k += " -m32 -g ";
-
-                if(extraDebugOptions)
-                {
-                    k += "-fsanitize=address ";
-                }
-                k+= "./bin/Debug/x86/obj/*.obj -o ./bin/Debug/x86/";
-            }
-            else
-            {
-                if(extraDebugOptions)
-                {
-                    k += "/fsanitize=address ";
-                }
-
-                k += " /link /DEBUG ";
-                k+= "./bin/Debug/x86/obj/*.obj /OUT:./bin/Debug/x86/";
-            }
-            
-            file << k;
-            file << projectName;
-        }
-
+        writeCompileShell(file, false, true);
         file.close();
         
         //Note that this is required in linux to create a executable shell file.
@@ -747,34 +834,174 @@ void createShellFile()
 
         //x86 version RELEASE
         file = std::fstream(startDir + "build/Release/buildx86.sh", std::fstream::out | std::fstream::binary);
-        
-        if(file.is_open())
-        {
-            file << "#!/bin/bash\n";
-            file << "ninja -f ./build/Release/buildx86.ninja -v\n";
-
-            k = compilerName;
-
-            if(compilerType != TYPE_MSVC)
-            {
-                k += " -O3 ";
-                k += "./bin/Release/x86/obj/*.obj -o ./bin/Release/x86/";
-            }
-            else
-            {
-                k += " /O2 ";
-                k += " /link ";
-                k += "./bin/Release/x86/obj/*.obj /OUT:./bin/Release/x86/";
-            }
-            
-            file << k;
-            file << projectName;
-        }
-
+        writeCompileShell(file, false, false);
         file.close();
 
         //Note that this is required in linux to create a executable shell file.
         system("chmod 700 build/Release/buildx86.sh");
+    }
+}
+
+void writeCompileBatch(std::fstream& file, bool x64, bool debug)
+{
+    if(file.is_open())
+    {
+        file << "@echo OFF\n";
+        file << "llvm-rc res/";
+        file << projectName;
+        file << ".rc -o res/";
+        file << projectName;
+        file << ".res\n";
+
+        if(debug)
+        {
+            if(x64)
+                file << "ninja -f ./build/Debug/buildx64.ninja -v\n";
+            else
+                file << "ninja -f ./build/Debug/buildx86.ninja -v\n";
+        }
+        else
+        {
+            if(x64)
+                file << "ninja -f ./build/Release/buildx64.ninja -v\n";
+            else
+                file << "ninja -f ./build/Release/buildx86.ninja -v\n";
+        }
+
+        if(compilerType != TYPE_MSVC)
+        {
+            file << "set debugOptions=";
+
+            if(debug)
+            {
+                file << "-g";
+                if(extraDebugOptions)
+                {
+                    file << " -fsantize=address";
+                }
+            }
+            file << "\n";
+
+            file << "set linkOptions=";
+            if(includeWindowsStuff)
+            {
+                if(x64)
+                    file << "%WLIBPATH64% %WLIBVALUES%";
+                else
+                    file << "%WLIBPATH86% %WLIBVALUES%";
+            }
+            file << "\n";
+
+            file << "set extraOptions=";
+            std::string spaceBuffer = " ";
+            file << " res/";
+            file << projectName;
+            file << ".res";
+
+            if(!debug)
+            {
+                file << spaceBuffer;
+                file << "-O3";
+            }
+            if(!x64)
+            {
+                file << spaceBuffer;
+                file << "-m32";
+            }
+            if(isGuiApplication)
+            {
+                file << spaceBuffer;
+                file << "-Wl,-subsystem:windows -Wl,-entrypoint:mainCRTStartup";
+            }
+            file << "\n";
+
+            if(debug)
+            {
+                if(x64)
+                    file << "set projectCommand=./bin/Debug/x64/obj/*.obj -o ./bin/Debug/x64/";
+                else
+                    file << "set projectCommand=./bin/Debug/x86/obj/*.obj -o ./bin/Debug/x86/";
+            }
+            else
+            {
+                if(x64)
+                    file << "set projectCommand=./bin/Release/x64/obj/*.obj -o ./bin/Release/x64/";
+                else
+                    file << "set projectCommand=./bin/Release/x86/obj/*.obj -o ./bin/Release/x86/";
+            }
+
+            file << projectName;
+            file << ".exe";
+            file << "\n";
+        }
+        else
+        {
+            file << "set debugOptions=/DEBUG";
+
+            if(extraDebugOptions)
+            {
+                file << " /fsantize=address";
+            }
+            file << "\n";
+
+            file << "set linkOptions=";
+            if(includeWindowsStuff)
+            {
+                if(x64)
+                    file << "%WLIBPATH64% %WLIBVALUES%";
+                else
+                    file << "%WLIBPATH86% %WLIBVALUES%";
+            }
+            file << " res/";
+            file << projectName;
+            file << ".res";
+            file << "\n";
+
+            file << "set extraOptions=";
+            std::string spaceBuffer = " ";
+            file << " res/";
+            file << projectName;
+            file << ".res";
+
+            if(!debug)
+            {
+                file << spaceBuffer;
+                file << "/O2";
+            }
+            if(!x64)
+            {
+                file << spaceBuffer;
+                file << "/machine:x86";
+            }
+            if(isGuiApplication)
+            {
+                file << spaceBuffer;
+                file << "/subsystem:windows /entrypoint:mainCRTStartup";
+            }
+            file << "\n";
+
+            if(debug)
+            {
+                if(x64)
+                    file << "set projectCommand=/LINK ./bin/Debug/x64/obj/*.obj /OUT:./bin/Debug/x64/";
+                else
+                    file << "set projectCommand=/LINK ./bin/Debug/x86/obj/*.obj /OUT:./bin/Debug/x86/";
+            }
+            else
+            {
+                if(x64)
+                    file << "set projectCommand=/LINK ./bin/Release/x64/obj/*.obj /OUT:./bin/Release/x64/";
+                else
+                    file << "set projectCommand=/LINK ./bin/Release/x86/obj/*.obj /OUT:./bin/Release/x86/";
+            }
+
+            file << projectName;
+            file << ".exe";
+            file << "\n";
+        }
+        
+        file << compilerName;
+        file << " %debugOptions% %linkOptions% %extraOptions% %projectCommand%";
     }
 }
 
@@ -787,86 +1014,12 @@ void createBatchFile()
     {
         //x64 version DEBUG
         file = std::fstream(startDir + "build/Debug/buildx64.bat", std::fstream::out | std::fstream::binary);
-        
-        if(file.is_open())
-        {
-            file << "@echo OFF\n";
-            file << "ninja -f ./build/Debug/buildx64.ninja -v\n";
-
-            k = compilerName;
-
-            if(compilerType != TYPE_MSVC)
-            {
-                k += " -g ";
-
-                if(extraDebugOptions)
-                {
-                    k += "-fsanitize=address ";
-                }
-                if(includeWindowsStuff)
-                {
-                    k += "%WLIBPATH64% %WLIBVALUES% ";
-                }
-                k+= "./bin/Debug/x64/obj/*.obj -o ./bin/Debug/x64/";
-            }
-            else
-            {
-                if(extraDebugOptions)
-                {
-                    k += "/fsanitize=address ";
-                }
-                if(includeWindowsStuff)
-                {
-                    k += "%WLIBPATH64% %WLIBVALUES% ";
-                }
-
-                k += " /link /DEBUG ";
-                k+= "./bin/Debug/x64/obj/*.obj /OUT:./bin/Debug/x64/";
-            }
-            
-            file << k;
-            file << projectName;
-            file << ".exe";
-        }
-
+        writeCompileBatch(file, true, true);
         file.close();
 
         //x64 version RELEASE
         file = std::fstream(startDir + "build/Release/buildx64.bat", std::fstream::out | std::fstream::binary);
-        
-        if(file.is_open())
-        {
-            file << "@echo OFF\n";
-            file << "ninja -f ./build/Release/buildx64.ninja -v\n";
-
-            k = compilerName;
-
-            if(compilerType != TYPE_MSVC)
-            {
-                k += " -O3 ";
-                if(includeWindowsStuff)
-                {
-                    k += "%WLIBPATH64% %WLIBVALUES% ";
-                }
-                k += "./bin/Release/x64/obj/*.obj -o ./bin/Release/x64/";
-            }
-            else
-            {
-                k += " /O2 ";
-                if(includeWindowsStuff)
-                {
-                    k += "%WLIBPATH64% %WLIBVALUES% ";
-                }
-
-                k += " /link ";
-                k += "./bin/Release/x64/obj/*.obj /OUT:./bin/Release/x64/";
-            }
-            
-            file << k;
-            file << projectName;
-            file << ".exe";
-        }
-
+        writeCompileBatch(file, true, false);
         file.close();
     }
 
@@ -874,86 +1027,12 @@ void createBatchFile()
     {
         //x86 version DEBUG
         file = std::fstream(startDir + "build/Debug/buildx86.bat", std::fstream::out | std::fstream::binary);
-        
-        if(file.is_open())
-        {
-            file << "@echo OFF\n";
-            file << "ninja -f ./build/Debug/buildx86.ninja -v\n";
-
-            k = compilerName;
-
-            if(compilerType != TYPE_MSVC)
-            {
-                k += " -m32 -g ";
-
-                if(extraDebugOptions)
-                {
-                    k += "-fsanitize=address ";
-                }
-                if(includeWindowsStuff)
-                {
-                    k += "%WLIBPATH86% %WLIBVALUES% ";
-                }
-                k+= "./bin/Debug/x86/obj/*.obj -o ./bin/Debug/x86/";
-            }
-            else
-            {
-                if(extraDebugOptions)
-                {
-                    k += "/fsanitize=address ";
-                }
-                if(includeWindowsStuff)
-                {
-                    k += "%WLIBPATH86% %WLIBVALUES% ";
-                }
-
-                k += " /link /DEBUG ";
-                k+= "./bin/Debug/x86/obj/*.obj /OUT:./bin/Debug/x86/";
-            }
-            
-            file << k;
-            file << projectName;
-            file << ".exe";
-        }
-
+        writeCompileBatch(file, false, true);
         file.close();
 
         //x86 version RELEASE
         file = std::fstream(startDir + "build/Release/buildx86.bat", std::fstream::out | std::fstream::binary);
-        
-        if(file.is_open())
-        {
-            file << "@echo OFF\n";
-            file << "ninja -f ./build/Release/buildx86.ninja -v\n";
-
-            k = compilerName;
-
-            if(compilerType != TYPE_MSVC)
-            {
-                k += " -O3 ";
-                if(includeWindowsStuff)
-                {
-                    k += "%WLIBPATH86% %WLIBVALUES% ";
-                }
-                k += "./bin/Release/x86/obj/*.obj -o ./bin/Release/x86/";
-            }
-            else
-            {
-                k += " /O2 ";
-                if(includeWindowsStuff)
-                {
-                    k += "%WLIBPATH86% %WLIBVALUES% ";
-                }
-
-                k += " /link ";
-                k += "./bin/Release/x86/obj/*.obj /OUT:./bin/Release/x86/";
-            }
-            
-            file << k;
-            file << projectName;
-            file << ".exe";
-        }
-
+        writeCompileBatch(file, false, false);
         file.close();
     }
 
@@ -1375,7 +1454,7 @@ int main(int argc, const char* argv[])
             }
             else if(std::strcmp("-v", argv[i]) == 0)
             {
-                std::cout << "Version 2.0" << std::endl;
+                std::cout << "Version 2.1" << std::endl;
                 return 0;
             }
             else if(std::strcmp("-i", argv[i]) == 0)
@@ -1466,6 +1545,14 @@ int main(int argc, const char* argv[])
                     std::cout << "This option is not avaliable on Linux as it relies on the Window SDK" << std::endl;
                 #else
                     includeWindowsStuff = true;
+                #endif
+            }
+            else if(std::strcmp("-Exclude_Console", argv[i]) == 0)
+            {
+                #ifdef LINUX
+                    std::cout << "This option is not avaliable on Linux currently" << std::endl;
+                #else
+                    isGuiApplication = true;
                 #endif
             }
             else if(std::strcmp("-Static_Library", argv[i]) == 0)
@@ -1602,6 +1689,9 @@ int main(int argc, const char* argv[])
             createNinjaFilex64();
             createNinjaVarFilex86();
             createNinjaFilex86();
+
+            std::cout << "Creating project resource files" << std::endl;
+            createProjectResFiles();
 
             if(generateBatch)
             {
