@@ -1304,6 +1304,14 @@ int main(int argc, const char* argv[])
             {
                 vscodeOptions = true;
             }
+            else if(std::strcmp("-Generate_Shell", argv[i]) == 0)
+            {
+                generateBatch = false;
+            }
+            else if(std::strcmp("-Generate_Batch", argv[i]) == 0)
+            {
+                generateBatch = true;
+            }
             else if(std::strcmp("-Resource_File", argv[i]) == 0)
             {
                 includeResourceFile = true;
